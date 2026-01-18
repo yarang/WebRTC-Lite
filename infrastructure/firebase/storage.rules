@@ -1,0 +1,58 @@
+###############################################################################
+# Firebase Storage Security Rules for WebRTC-Lite
+#
+# This file defines security rules for Firebase Storage (optional).
+# Used for storing recorded sessions or shared files.
+#
+# Requirements: REQ-N003, REQ-N004
+###############################################################################
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper function to check authentication
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user owns the file
+    function isOwner() {
+      return isSignedIn() &&
+             request.auth.uid == resourceName.split('/')[1];
+    }
+
+    // Match recordings folder (optional feature REQ-O005)
+    match /recordings/{userId}/{allPaths=**} {
+      // Allow read if user owns the files
+      allow read: if isOwner();
+
+      // Allow write if user owns the files
+      allow write: if isOwner();
+
+      // Limit file size to 100MB
+      allow write: if request.resource.size < 100 * 1024 * 1024;
+
+      // Only allow video/audio formats
+      allow write: if request.resource.contentType.matches('video/.*') ||
+                        request.resource.contentType.matches('audio/.*');
+    }
+
+    // Match shared files folder
+    match /shared/{sessionId}/{allPaths=**} {
+      // Participants can read files
+      allow read: if isSignedIn();
+
+      // Only authenticated users can write
+      allow write: if isSignedIn();
+
+      // Limit file size to 10MB
+      allow write: if request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

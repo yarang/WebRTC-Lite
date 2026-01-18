@@ -1,0 +1,182 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://webrtc-lite.example.com/schemas/webrtc_session.schema.json",
+  "title": "WebRTC Session Schema",
+  "description": "Schema for WebRTC session documents in Firestore. Requirements: REQ-E001, REQ-E002, REQ-E003, REQ-E005",
+  "type": "object",
+  "required": [
+    "session_id",
+    "caller_id",
+    "callee_id",
+    "status",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique session identifier (UUID v4)"
+    },
+    "caller_id": {
+      "type": "string",
+      "description": "Firebase Auth UID of the caller"
+    },
+    "callee_id": {
+      "type": "string",
+      "description": "Firebase Auth UID of the callee"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "offered", "answered", "connected", "ended"],
+      "description": "Current session status following state machine"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Session creation timestamp (Firestore Timestamp)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last update timestamp (Firestore Timestamp)"
+    },
+    "offer": {
+      "type": "object",
+      "description": "SDP Offer from caller",
+      "properties": {
+        "sdp": {
+          "type": "string",
+          "description": "Base64 encoded SDP offer",
+          "minLength": 1,
+          "maxLength": 100000
+        },
+        "type": {
+          "type": "string",
+          "enum": ["offer"],
+          "description": "SDP type"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Offer creation timestamp"
+        }
+      },
+      "required": ["sdp", "type", "created_at"]
+    },
+    "answer": {
+      "type": "object",
+      "description": "SDP Answer from callee",
+      "properties": {
+        "sdp": {
+          "type": "string",
+          "description": "Base64 encoded SDP answer",
+          "minLength": 1,
+          "maxLength": 100000
+        },
+        "type": {
+          "type": "string",
+          "enum": ["answer"],
+          "description": "SDP type"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Answer creation timestamp"
+        }
+      },
+      "required": ["sdp", "type", "created_at"]
+    },
+    "ice_candidates": {
+      "type": "object",
+      "description": "ICE candidates from both parties",
+      "properties": {
+        "caller": {
+          "type": "array",
+          "description": "ICE candidates from caller",
+          "items": {
+            "$ref": "#/definitions/ice_candidate"
+          }
+        },
+        "callee": {
+          "type": "array",
+          "description": "ICE candidates from callee",
+          "items": {
+            "$ref": "#/definitions/ice_candidate"
+          }
+        }
+      }
+    },
+    "turn_credentials": {
+      "type": "object",
+      "description": "TURN server credentials for this session",
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "Time-based TURN username (timestamp:username)"
+        },
+        "password": {
+          "type": "string",
+          "description": "HMAC-SHA1 generated password"
+        },
+        "ttl": {
+          "type": "integer",
+          "description": "Credential lifetime in seconds",
+          "minimum": 60,
+          "maximum": 86400
+        },
+        "uris": {
+          "type": "array",
+          "description": "TURN server URIs",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "required": ["username", "password", "ttl", "uris"]
+    },
+    "error": {
+      "type": "object",
+      "description": "Error information if session failed",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Error code"
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable error message"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Error timestamp"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "ice_candidate": {
+      "type": "object",
+      "description": "WebRTC ICE candidate",
+      "required": ["candidate", "sdpMid", "sdpMLineIndex"],
+      "properties": {
+        "candidate": {
+          "type": "string",
+          "description": "ICE candidate string",
+          "minLength": 1
+        },
+        "sdpMid": {
+          "type": "string",
+          "description": "SDP mid identifier"
+        },
+        "sdpMLineIndex": {
+          "type": "integer",
+          "description": "SDP media line index",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

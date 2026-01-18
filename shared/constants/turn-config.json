@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://webrtc-lite.example.com/constants/turn-config.json",
+  "title": "WebRTC-Lite TURN Configuration",
+  "description": "Default TURN/STUN server configuration for clients. Requirements: REQ-U001, REQ-U003, REQ-S001",
+  "version": "1.0.0",
+  "turn_servers": [
+    {
+      "name": "primary",
+      "urls": [
+        "turn:turn.example.com:3479?transport=udp",
+        "turn:turn.example.com:3479?transport=tcp",
+        "turns:turn.example.com:5349?transport=tcp"
+      ],
+      "username": "",
+      "credential": "",
+      "credential_type": "password",
+      "ttl": 86400,
+      "priority": 1,
+      "require_auth": true
+    }
+  ],
+  "stun_servers": [
+    {
+      "name": "primary",
+      "urls": [
+        "stun:turn.example.com:3478"
+      ],
+      "priority": 1
+    }
+  ],
+  "ice_transport_policy": "all",
+  "ice_candidate_pool_size": 10,
+  "ice_servers": {
+    "use TURN": true,
+    "use STUN": true,
+    "fallback_to_TURN_after": 30
+  },
+  "configuration": {
+    "gather_policy": "all",
+    "ice_check_interval": 200,
+    "ice_check_timeout": 5000,
+    "ice_connection_timeout": 30000,
+    "ice_restart_timeout": 5000
+  },
+  "nat_traversal": {
+    "auto_detect": true,
+    "always_use_TURN": false,
+    "preferred_transport": "udp"
+  }
+}

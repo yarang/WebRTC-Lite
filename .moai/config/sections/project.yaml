@@ -1,0 +1,9 @@
+project:
+  name: WebRTC-Lite
+  description: ''
+  type: ''
+  locale: '{{LOCALE}}'
+  created_at: '2026-01-18T17:39:14.691877Z'
+  initialized: 'true'
+github:
+  profile_name: Wondo Jung

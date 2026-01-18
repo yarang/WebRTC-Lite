@@ -1,0 +1,117 @@
+#cloud-config
+###############################################################################
+# Cloud-Init Configuration for WebRTC-Lite TURN Server
+#
+# This configuration runs on first boot of the Oracle Cloud VM.
+# It performs initial setup and configuration.
+#
+# Requirements: REQ-U001, REQ-U003, REQ-S001, REQ-S003
+###############################################################################
+
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+
+# Install required packages
+packages:
+  - curl
+  - wget
+  - git
+  - nginx
+  - certbot
+  - python3-pip
+  - ufw
+  - fail2ban
+  - net-tools
+  - htop
+  - vim
+
+# Create users and groups
+users:
+  - name: webrtc
+    system: true
+    shell: /bin/bash
+    homedir: /opt/webrtc-lite
+
+# Create directories
+runcmd:
+  # Create project directory
+  - mkdir -p /opt/webrtc-lite
+  - chown -R webrtc:webrtc /opt/webrtc-lite
+
+  # Configure firewall
+  - ufw --force enable
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw allow 3478/udp
+  - ufw allow 3478/tcp
+  - ufw allow 5349/tcp
+
+  # Download setup scripts from GitHub (replace with actual repository)
+  - curl -L -o /opt/webrtc-lite/setup.sh https://raw.githubusercontent.com/your-org/webrtc-lite/main/infrastructure/oracle-cloud/coturn/setup.sh
+  - curl -L -o /opt/webrtc-lite/monitor.sh https://raw.githubusercontent.com/your-org/webrtc-lite/main/infrastructure/oracle-cloud/coturn/monitor.sh
+  - chmod +x /opt/webrtc-lite/*.sh
+
+  # Create log directories
+  - mkdir -p /var/log/webrtc-lite
+  - chown -R webrtc:webrtc /var/log/webrtc-lite
+
+  # Configure nginx as reverse proxy for TURN API
+  - systemctl enable nginx
+  - systemctl start nginx
+
+# Write configuration files
+write_files:
+  # Nginx configuration for TURN API
+  - path: /etc/nginx/sites-available/turn-api
+    content: |
+      server {
+          listen 80;
+          server_name ${domain_name};
+
+          location / {
+              proxy_pass http://localhost:8080;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+          }
+      }
+
+  # Enable nginx site
+  - path: /tmp/enable-nginx-site.sh
+    content: |
+      #!/bin/bash
+      ln -sf /etc/nginx/sites-available/turn-api /etc/nginx/sites-enabled/
+      rm -f /etc/nginx/sites-enabled/default
+      systemctl restart nginx
+
+  # Environment variables
+  - path: /etc/environment.d/webrtc-lite.conf
+    content: |
+      DOMAIN=${domain_name}
+      EMAIL=${email}
+      PROJECT_NAME=webrtc-lite
+
+# Final message
+final_message: |
+  ##############################################################################
+  # WebRTC-Lite TURN Server Cloud-Init Complete
+  ##############################################################################
+
+  The server has been initialized with:
+  - Firewall configured (ports 22, 80, 443, 3478, 5349)
+  - Nginx reverse proxy configured
+  - Setup scripts downloaded to /opt/webrtc-lite
+
+  Next steps:
+  1. Update DNS: ${domain_name} -> <PUBLIC_IP>
+  2. SSH to the server
+  3. Run: sudo bash /opt/webrtc-lite/setup.sh
+
+  ##############################################################################
+
+# Output to console
+output:
+  all: "| tee -a /var/log/cloud-init-output.log"

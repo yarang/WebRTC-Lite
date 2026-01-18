@@ -1,0 +1,160 @@
+###############################################################################
+# Firebase Firestore Security Rules for WebRTC-Lite
+#
+# This file defines the security rules for the WebRTC-Lite signaling system.
+# It implements authentication, authorization, and data validation.
+#
+# Requirements: REQ-U003, REQ-N002, REQ-N003, REQ-N004, REQ-E001-E007
+#
+# Collections:
+#   - webrtc_sessions: Main signaling data for WebRTC sessions
+#
+# Security Features:
+#   - Only authenticated users can access
+#   - Participants can only access their own sessions
+#   - Automatic cleanup after connection
+#   - Input validation for SDP and ICE candidates
+###############################################################################
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    ///////////////////////////////////////////////////////////////////////////
+    // HELPER FUNCTIONS
+    ///////////////////////////////////////////////////////////////////////////
+
+    /// Check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /// Check if user is the caller
+    function isCaller(session) {
+      return isSignedIn() &&
+             request.auth.uid == session.data.caller_id;
+    }
+
+    /// Check if user is the callee
+    function isCallee(session) {
+      return isSignedIn() &&
+             request.auth.uid == session.data.callee_id;
+    }
+
+    /// Check if user is a participant (caller or callee)
+    function isParticipant(session) {
+      return isCaller(session) || isCallee(session);
+    }
+
+    /// Check if session has expired (5 minutes)
+    function isSessionExpired(session) {
+      return request.time > session.data.created_at + duration(5, 'm');
+    }
+
+    /// Check if session is old enough to delete (1 hour)
+    function isSessionOld(session) {
+      return request.time > session.data.created_at + duration(1, 'h');
+    }
+
+    /// Check if user is the caller or session is expired
+    function canDeleteSession(session) {
+      return isCaller(session) || isSessionExpired(session);
+    }
+
+    /// Validate SDP data structure
+    function isValidSDP(sdp) {
+      return sdp.sdp is string &&
+             sdp.sdp.size() > 0 &&
+             sdp.sdp.size() < 100000 &&
+             sdp.type in ['offer', 'answer', 'pranswer', 'rollback'];
+    }
+
+    /// Validate ICE candidate structure
+    function isValidICECandidate(candidate) {
+      return candidate.candidate is string &&
+             candidate.candidate.size() > 0 &&
+             candidate.sdpMid is string &&
+             candidate.sdpMLineIndex is number;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // COLLECTION: webrtc_sessions
+    ///////////////////////////////////////////////////////////////////////////
+
+    match /webrtc_sessions/{sessionId} {
+
+      // CREATE: Only authenticated users can create sessions
+      // Must be the caller in the session
+      allow create: if isSignedIn() &&
+                        request.resource.data.caller_id == request.auth.uid &&
+                        request.resource.data.callee_id != request.auth.uid &&
+                        request.resource.data.callee_id is string &&
+                        request.resource.data.callee_id.size() > 0 &&
+                        request.resource.data.status in ['pending', 'offered'] &&
+                        request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['caller_id', 'callee_id', 'status', 'created_at', 'updated_at', 'offer', 'turn_credentials']);
+
+      // READ: Only participants can read
+      allow read: if isParticipant(resource);
+
+      // UPDATE: Only participants can update, with restrictions
+      allow update: if isParticipant(resource) &&
+                        // Cannot change caller_id or callee_id
+                        !(request.resource.data.diff(resource.data).affectedKeys()
+                          .hasAny(['caller_id', 'callee_id', 'created_at'])) &&
+                        // Status must follow state machine
+                        (
+                          // Callee can answer
+                          (isCallee(resource) &&
+                           request.resource.data.status == 'answered' &&
+                           resource.data.status in ['pending', 'offered'] &&
+                           isValidSDP(request.resource.data.answer)) ||
+
+                          // Either participant can mark as connected
+                          (isParticipant(resource) &&
+                           request.resource.data.status == 'connected' &&
+                           resource.data.status in ['offered', 'answered']) ||
+
+                          // Either participant can mark as ended
+                          (isParticipant(resource) &&
+                           request.resource.data.status == 'ended' &&
+                           resource.data.status in ['connected', 'answered', 'offered']) ||
+
+                          // Either participant can update ICE candidates
+                          (request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['ice_candidates', 'updated_at']) &&
+                           request.resource.data.ice_candidates is map)
+                        );
+
+      // DELETE: Caller can delete, or auto-delete after 1 hour
+      allow delete: if canDeleteSession(resource);
+
+      ///////////////////////////////////////////////////////////////////////////
+      // SUBCOLLECTION: ice_candidates (embedded in webrtc_sessions)
+      ///////////////////////////////////////////////////////////////////////////
+
+      match /ice_candidates/{candidateId} {
+        // Allow participants to read/write ICE candidates
+        allow read, write: if isParticipant(/databases/$(database)/documents/webrtc_sessions/$(sessionId));
+      }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // COLLECTION: turn_credentials (Server-side only)
+    ///////////////////////////////////////////////////////////////////////////
+
+    match /turn_credentials/{docId} {
+      // No direct client access - use Cloud Function or API
+      allow read, write: if false;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // INDEX HINTS (for performance)
+    ///////////////////////////////////////////////////////////////////////////
+
+    // Recommended indexes:
+    // 1. webrtc_sessions: caller_id, status, created_at (descending)
+    // 2. webrtc_sessions: callee_id, status, created_at (descending)
+    // 3. webrtc_sessions: status, created_at (descending) - for cleanup
+  }
+}

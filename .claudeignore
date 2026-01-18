@@ -1,0 +1,115 @@
+# Claude Code Ignore Patterns
+# Claude가 코드 분석 시 무시할 파일/디렉토리 패턴
+
+# 의존성 디렉토리
+node_modules/
+venv/
+.venv/
+env/
+.env/
+
+# 빌드 출력
+build/
+dist/
+*.apk
+*.ipa
+*.app
+*.dSYM
+
+# Android
+.gradle/
+.idea/
+*.iml
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# iOS
+Pods/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+DerivedData/
+*.hmap
+*.ipa
+
+# 로그 파일
+*.log
+logs/
+*.log.*
+
+# 임시 파일
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 민감 정보
+*.pem
+*.key
+*.p12
+*.jks
+.env
+.env.local
+secrets.yaml
+credentials.json
+serviceAccountKey.json
+
+# 대용량 미디어 파일
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.mp3
+*.wav
+
+# 테스트 결과
+coverage/
+test-results/
+.nyc_output/
+
+# 캐시
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+
+# IDE 설정 (개인 선호도)
+.vscode/
+.idea/
+
+# 백업 파일
+*.bak
+*.backup
+*-backup
+
+# 컴파일된 바이너리
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Git 메타데이터
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD 캐시
+.circleci/
+.github/workflows/
+
+# Terraform 상태 (민감 정보 포함)
+*.tfstate
+*.tfstate.backup
+.terraform/
+
+# Firebase 캐시
+.firebase/
+
+# 문서 빌드 출력
+docs/_build/
+site/

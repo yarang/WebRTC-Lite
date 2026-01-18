@@ -1,0 +1,171 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://webrtc-lite.example.com/constants/error-codes.json",
+  "title": "WebRTC-Lite Error Codes",
+  "description": "Standard error codes for WebRTC-Lite system. Requirements: REQ-U004, REQ-S003",
+  "version": "1.0.0",
+  "errors": {
+    "session_errors": {
+      "SESSION_NOT_FOUND": {
+        "code": "E001",
+        "message": "Session not found or does not exist",
+        "http_status": 404,
+        "retry": false
+      },
+      "SESSION_EXPIRED": {
+        "code": "E002",
+        "message": "Session has expired (5 minute TTL)",
+        "http_status": 410,
+        "retry": false
+      },
+      "SESSION_ALREADY_EXISTS": {
+        "code": "E003",
+        "message": "Session with this ID already exists",
+        "http_status": 409,
+        "retry": false
+      },
+      "INVALID_SESSION_STATE": {
+        "code": "E004",
+        "message": "Invalid state transition for session",
+        "http_status": 400,
+        "retry": false
+      }
+    },
+    "signaling_errors": {
+      "INVALID_SDP": {
+        "code": "E101",
+        "message": "Invalid SDP offer or answer",
+        "http_status": 400,
+        "retry": false
+      },
+      "SDP_TOO_LARGE": {
+        "code": "E102",
+        "message": "SDP size exceeds maximum (100KB)",
+        "http_status": 413,
+        "retry": false
+      },
+      "INVALID_ICE_CANDIDATE": {
+        "code": "E103",
+        "message": "Invalid ICE candidate format",
+        "http_status": 400,
+        "retry": false
+      },
+      "SIGNALING_TIMEOUT": {
+        "code": "E104",
+        "message": "Signaling operation timed out",
+        "http_status": 504,
+        "retry": true
+      }
+    },
+    "connection_errors": {
+      "PEER_CONNECTION_FAILED": {
+        "code": "E201",
+        "message": "WebRTC PeerConnection failed to initialize",
+        "http_status": 500,
+        "retry": false
+      },
+      "ICE_CONNECTION_FAILED": {
+        "code": "E202",
+        "message": "ICE connection failed - no valid candidate pairs",
+        "http_status": 503,
+        "retry": true
+      },
+      "TURN_SERVER_UNAVAILABLE": {
+        "code": "E203",
+        "message": "TURN server is not responding",
+        "http_status": 503,
+        "retry": true
+      },
+      "TURN_CREDENTIALS_EXPIRED": {
+        "code": "E204",
+        "message": "TURN credentials have expired",
+        "http_status": 401,
+        "retry": true
+      },
+      "NAT_TRAVERSAL_FAILED": {
+        "code": "E205",
+        "message": "NAT traversal failed - TURN relay required",
+        "http_status": 503,
+        "retry": true
+      }
+    },
+    "authentication_errors": {
+      "UNAUTHORIZED": {
+        "code": "E301",
+        "message": "User not authenticated",
+        "http_status": 401,
+        "retry": false
+      },
+      "INVALID_TOKEN": {
+        "code": "E302",
+        "message": "Invalid Firebase Auth token",
+        "http_status": 401,
+        "retry": false
+      },
+      "TOKEN_EXPIRED": {
+        "code": "E303",
+        "message": "Firebase Auth token has expired",
+        "http_status": 401,
+        "retry": false
+      },
+      "PERMISSION_DENIED": {
+        "code": "E304",
+        "message": "User does not have permission for this operation",
+        "http_status": 403,
+        "retry": false
+      },
+      "NOT_PARTICIPANT": {
+        "code": "E305",
+        "message": "User is not a participant in this session",
+        "http_status": 403,
+        "retry": false
+      }
+    },
+    "network_errors": {
+      "NETWORK_UNAVAILABLE": {
+        "code": "E401",
+        "message": "Network connection is unavailable",
+        "http_status": 503,
+        "retry": true
+      },
+      "NETWORK_CHANGE": {
+        "code": "E402",
+        "message": "Network configuration has changed",
+        "http_status": 503,
+        "retry": true
+      },
+      "FIRESTORE_UNAVAILABLE": {
+        "code": "E403",
+        "message": "Firestore service is unavailable",
+        "http_status": 503,
+        "retry": true
+      },
+      "QUOTA_EXCEEDED": {
+        "code": "E404",
+        "message": "Firestore quota exceeded",
+        "http_status": 429,
+        "retry": true
+      }
+    },
+    "media_errors": {
+      "MEDIA_ACCESS_DENIED": {
+        "code": "E501",
+        "message": "Permission to access camera/microphone denied",
+        "http_status": 403,
+        "retry": false
+      },
+      "MEDIA_DEVICE_UNAVAILABLE": {
+        "code": "E502",
+        "message": "Required media device (camera/microphone) not found",
+        "http_status": 404,
+        "retry": false
+      },
+      "MEDIA_TRACK_FAILED": {
+        "code": "E503",
+        "message": "Media track failed to initialize",
+        "http_status": 500,
+        "retry": false
+      }
+    }
+  }
+}

@@ -1,0 +1,62 @@
+###############################################################################
+# iptables Rules for WebRTC-Lite TURN Server
+#
+# This file contains iptables rules for securing the TURN server.
+# Apply with: iptables-restore < /etc/iptables.rules
+#
+# Requirements: REQ-N002, REQ-S003
+#
+# Note: On Ubuntu with ufw, these rules should be integrated via ufw.
+# This file is provided for reference and manual configuration.
+###############################################################################
+
+# Flush existing rules
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+
+# Allow loopback
+-A INPUT -i lo -j ACCEPT
+-A OUTPUT -o lo -j ACCEPT
+
+# Allow established and related connections
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+# Allow SSH (rate limited)
+-A INPUT -p tcp --dport 22 -m state --state NEW -m recent --set
+-A INPUT -p tcp --dport 22 -m state --state NEW -m recent --update --seconds 60 --hitcount 4 -j DROP
+-A INPUT -p tcp --dport 22 -j ACCEPT
+
+# Allow HTTP/HTTPS
+-A INPUT -p tcp --dport 80 -j ACCEPT
+-A INPUT -p tcp --dport 443 -j ACCEPT
+
+# Allow STUN/TURN ports
+-A INPUT -p udp --dport 3478 -j ACCEPT
+-A INPUT -p tcp --dport 3478 -j ACCEPT
+-A INPUT -p tcp --dport 5349 -j ACCEPT
+
+# Allow TURN API
+-A INPUT -p tcp --dport 8080 -j ACCEPT
+
+# Rate limiting for TURN to prevent abuse
+-A INPUT -p udp --dport 3478 -m limit --limit 50/second --limit-burst 100 -j ACCEPT
+-A INPUT -p udp --dport 3478 -j DROP
+
+# ICMP (ping) - rate limited
+-A INPUT -p icmp --icmp-type echo-request -m limit --limit 1/second -j ACCEPT
+
+# Log dropped packets (optional - disable in production for performance)
+# -A INPUT -m limit --limit 5/min -j LOG --log-prefix "iptables dropped: " --log-level 4
+
+# Commit
+COMMIT
+
+# NAT table for TURN relay
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+COMMIT

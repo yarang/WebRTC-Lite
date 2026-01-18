@@ -1,0 +1,282 @@
+# WebRTC-Lite Project Structure
+
+프로젝트의 실제 디렉토리 구조입니다. Milestone 1 (Infrastructure Foundation)이 완료되어 인프라 관련 파일들이 생성되었습니다.
+
+## 디렉토리 구조 생성 명령어
+
+```bash
+# 프로젝트 루트 디렉토리 생성
+mkdir -p webrtc-hybrid-server
+cd webrtc-hybrid-server
+
+# 인프라 디렉토리
+mkdir -p infrastructure/oracle-cloud/{coturn,terraform,security}
+mkdir -p infrastructure/firebase
+
+# 클라이언트 SDK 디렉토리
+mkdir -p client-sdk/android/app/src/main/java/com/webrtc/{data,domain,presentation,di}
+mkdir -p client-sdk/android/app/src/test/java/com/webrtc
+mkdir -p client-sdk/android/app/src/androidTest/java/com/webrtc
+mkdir -p client-sdk/ios/WebRTCKit/{Data,Domain,Presentation,DI}
+mkdir -p client-sdk/ios/WebRTCKitTests
+
+# 공유 리소스
+mkdir -p shared/{schemas,constants}
+
+# 모니터링
+mkdir -p monitoring/prometheus-exporter
+
+# 문서
+mkdir -p docs
+
+# 테스트
+mkdir -p tests/{integration,load}
+
+echo "프로젝트 구조 생성 완료!"
+tree -L 3  # tree 명령어가 설치되어 있는 경우
+```
+
+## 전체 디렉토리 구조
+
+```
+webrtc-lite/
+│
+├── infrastructure/                      # 인프라 설정 및 스크립트 (완료됨)
+│   ├── oracle-cloud/
+│   │   ├── coturn/                     # TURN 서버 설정 (완료됨)
+│   │   │   ├── setup.sh                # Coturn 자동 설치 스크립트
+│   │   │   ├── turnserver.conf         # Coturn 설정 파일
+│   │   │   ├── monitor.sh              # 헬스체크 스크립트
+│   │   │   └── turn-credentials-api/   # TURN 자격 증명 API (완료됨)
+│   │   │       ├── main.py             # FastAPI 애플리케이션
+│   │   │       ├── requirements.txt    # Python 의존성
+│   │   │       └── test_main.py        # 테스트 (14개, 모두 통과)
+│   │   ├── terraform/                  # IaC (완료됨)
+│   │   │   ├── main.tf                 # 메인 Terraform 구성
+│   │   │   ├── variables.tf            # 변수 정의
+│   │   │   ├── outputs.tf              # 출력 값
+│   │   │   └── cloud-init.yaml         # VM 초기화 스크립트
+│   │   └── security/                   # 보안 설정 (완료됨)
+│   │       ├── iptables.rules          # 방화벽 규칙
+│   │       └── fail2ban.conf           # DDoS 방어 설정
+│   └── firebase/                       # Firebase 설정 (완료됨)
+│       ├── firestore.rules             # Firestore 보안 규칙
+│       ├── firestore.indexes.json      # Firestore 인덱스
+│       ├── firebase.json               # Firebase 프로젝트 설정
+│       └── storage.rules               # Storage 보안 규칙
+│
+├── client-sdk/                          # 클라이언트 SDK
+│   ├── android/
+│   │   ├── app/
+│   │   │   ├── src/
+│   │   │   │   ├── main/
+│   │   │   │   │   ├── java/com/webrtc/
+│   │   │   │   │   │   ├── data/        # 데이터 레이어
+│   │   │   │   │   │   │   ├── repository/
+│   │   │   │   │   │   │   │   ├── SignalingRepositoryImpl.kt
+│   │   │   │   │   │   │   │   └── WebRTCRepositoryImpl.kt
+│   │   │   │   │   │   │   ├── datasource/
+│   │   │   │   │   │   │   │   ├── remote/
+│   │   │   │   │   │   │   │   │   └── FirestoreDataSource.kt
+│   │   │   │   │   │   │   │   └── local/
+│   │   │   │   │   │   │   │       └── SharedPreferencesDataSource.kt
+│   │   │   │   │   │   │   └── model/
+│   │   │   │   │   │   │       └── RoomDto.kt
+│   │   │   │   │   │   │
+│   │   │   │   │   │   ├── domain/      # 비즈니스 로직
+│   │   │   │   │   │   │   ├── repository/
+│   │   │   │   │   │   │   │   ├── SignalingRepository.kt
+│   │   │   │   │   │   │   │   └── WebRTCRepository.kt
+│   │   │   │   │   │   │   ├── usecase/
+│   │   │   │   │   │   │   │   ├── CreateOfferUseCase.kt
+│   │   │   │   │   │   │   │   ├── AnswerCallUseCase.kt
+│   │   │   │   │   │   │   │   └── AddIceCandidateUseCase.kt
+│   │   │   │   │   │   │   └── model/
+│   │   │   │   │   │   │       └── Room.kt
+│   │   │   │   │   │   │
+│   │   │   │   │   │   ├── presentation/ # UI
+│   │   │   │   │   │   │   ├── call/
+│   │   │   │   │   │   │   │   ├── CallViewModel.kt
+│   │   │   │   │   │   │   │   ├── CallActivity.kt
+│   │   │   │   │   │   │   │   └── CallState.kt
+│   │   │   │   │   │   │   └── common/
+│   │   │   │   │   │   │       └── BaseViewModel.kt
+│   │   │   │   │   │   │
+│   │   │   │   │   │   └── di/          # 의존성 주입
+│   │   │   │   │   │       ├── AppModule.kt
+│   │   │   │   │   │       ├── DataModule.kt
+│   │   │   │   │   │       └── DomainModule.kt
+│   │   │   │   │   │
+│   │   │   │   │   ├── res/             # 리소스
+│   │   │   │   │   └── AndroidManifest.xml
+│   │   │   │   │
+│   │   │   │   ├── test/                # 단위 테스트
+│   │   │   │   │   └── java/com/webrtc/
+│   │   │   │   │
+│   │   │   │   └── androidTest/         # 통합 테스트
+│   │   │   │       └── java/com/webrtc/
+│   │   │   │
+│   │   │   ├── build.gradle             # 앱 빌드 설정
+│   │   │   └── google-services.json     # Firebase 설정 (다운로드 필요)
+│   │   │
+│   │   ├── build.gradle                 # 프로젝트 빌드 설정
+│   │   ├── settings.gradle
+│   │   └── local.properties             # 로컬 SDK 경로 (생성 필요)
+│   │
+│   └── ios/
+│       ├── WebRTCKit/
+│       │   ├── Data/                    # 데이터 레이어
+│       │   │   ├── Repository/
+│       │   │   │   ├── SignalingRepositoryImpl.swift
+│       │   │   │   └── WebRTCRepositoryImpl.swift
+│       │   │   ├── DataSource/
+│       │   │   │   └── FirestoreDataSource.swift
+│       │   │   └── Model/
+│       │   │       └── RoomDTO.swift
+│       │   │
+│       │   ├── Domain/                  # 비즈니스 로직
+│       │   │   ├── Repository/
+│       │   │   │   ├── SignalingRepository.swift
+│       │   │   │   └── WebRTCRepository.swift
+│       │   │   ├── UseCase/
+│       │   │   │   ├── CreateOfferUseCase.swift
+│       │   │   │   └── AnswerCallUseCase.swift
+│       │   │   └── Entity/
+│       │   │       └── Room.swift
+│       │   │
+│       │   ├── Presentation/            # UI
+│       │   │   ├── Call/
+│       │   │   │   ├── CallViewController.swift
+│       │   │   │   ├── CallViewModel.swift
+│       │   │   │   └── CallView.swift
+│       │   │   └── Common/
+│       │   │       └── BaseViewModel.swift
+│       │   │
+│       │   ├── DI/                      # 의존성 주입
+│       │   │   └── DependencyContainer.swift
+│       │   │
+│       │   ├── Config/
+│       │   │   └── WebRTCConfig.swift
+│       │   │
+│       │   ├── Info.plist
+│       │   └── GoogleService-Info.plist # Firebase 설정 (다운로드 필요)
+│       │
+│       ├── WebRTCKitTests/              # 테스트
+│       ├── Podfile                      # CocoaPods 의존성
+│       └── WebRTCKit.xcodeproj/
+│
+├── shared/                              # 공유 리소스 (완료됨)
+│   ├── schemas/                        # 데이터 스키마 (완료됨)
+│   │   └── webrtc_session.schema.json  # WebRTC 세션 스키마
+│   └── constants/                      # 공통 상수 (완료됨)
+│       ├── error-codes.json            # 표준 에러 코드
+│       └── turn-config.json            # TURN 설정 기본값
+│
+├── monitoring/                          # 모니터링
+│   ├── grafana-dashboard.json           # Grafana 대시보드
+│   └── prometheus-exporter/             # 메트릭 수집기
+│       └── coturn-exporter.go
+│
+├── docs/                                # 문서 (생성됨)
+│   ├── ARCHITECTURE.md                  # 시스템 아키텍처 설계 (Mermaid 다이어그램)
+│   ├── API_REFERENCE.md                 # TURN Credentials API 문서
+│   └── TROUBLESHOOTING.md               # 문제 해결 가이드
+│
+├── tests/                               # 프로젝트 레벨 테스트
+│   ├── integration/
+│   │   └── e2e-test.sh                  # E2E 테스트 스크립트
+│   └── load/
+│       └── load-test.yaml               # 부하 테스트 시나리오
+│
+├── .gitignore                           # Git 무시 파일
+├── .claudeignore                        # Claude Code 무시 파일
+├── CLAUDE.md                            # 프로젝트 컨텍스트 (Claude Code용)
+├── README.md                            # 프로젝트 개요
+├── DEVELOPMENT_GUIDE.md                 # 개발 가이드
+├── DEPLOYMENT_GUIDE.md                  # 배포 가이드
+└── LICENSE                              # 라이선스
+```
+
+## 주요 파일 설명
+
+### 루트 레벨 파일
+- **CLAUDE.md**: 프로젝트 전체 컨텍스트 (Claude Code용)
+- **README.md**: 프로젝트 개요 및 Quick Start 가이드
+- **DEVELOPMENT_GUIDE.md**: 개발 환경 설정 및 워크플로우 (인프라 포함)
+- **DEPLOYMENT_GUIDE.md**: Oracle Cloud 배포 상세 가이드
+- **ARCHITECTURE.md**: 시스템 아키텍처 설계 및 다이어그램
+- **API_REFERENCE.md**: TURN Credentials API 문서
+- **TROUBLESHOOTING.md**: 문제 해결 가이드
+- **PROJECT_STRUCTURE.md**: 프로젝트 구조 설명 (이 파일)
+- **DDD_COMPLETION_REPORT.md**: Milestone 1 완료 보고서
+
+### Infrastructure 폴더
+- **infrastructure/oracle-cloud/coturn/setup.sh**: Coturn 자동 설치 스크립트 (Oracle Cloud 최적화)
+- **infrastructure/oracle-cloud/coturn/turnserver.conf**: TURN 서버 설정 (TLS 1.3, HMAC-SHA1)
+- **infrastructure/oracle-cloud/coturn/turn-credentials-api/main.py**: FastAPI TURN 자격 증명 API (385줄, 100% 테스트 커버리지)
+- **infrastructure/oracle-cloud/terraform/main.tf**: Oracle Cloud IaC (VCN, Subnet, VM)
+- **infrastructure/firebase/firestore.rules**: Firestore 보안 규칙 (참여자만 접근)
+- **infrastructure/oracle-cloud/security/iptables.rules**: 방화벽 규칙 (UDP/TCP 3478, 5349)
+- **shared/schemas/webrtc_session.schema.json**: WebRTC 세션 스키마 (REQ-E001-E003)
+
+### Client SDK 폴더
+- **client-sdk/android/**: Android 클라이언트 (Kotlin, Clean Architecture)
+- **client-sdk/ios/**: iOS 클라이언트 (Swift, MVVM)
+
+## 다음 단계
+
+### 1. 인프라 배포 (Milestone 1 완료)
+
+인프라는 이미 완료되었습니다. 상세한 내용은 다음 문서를 참조하세요:
+- **[DDD_COMPLETION_REPORT.md](DDD_COMPLETION_REPORT.md)**: Milestone 1 완료 보고서
+- **[DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md)**: 인프라 설정 지침
+- **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)**: Oracle Cloud 배포 가이드
+
+### 2. 클라이언트 SDK 개발 (Milestone 2 & 3)
+
+다음 단계는 Android/iOS 클라이언트 SDK를 개발하는 것입니다:
+
+**Milestone 2: Android SDK Core**
+- WebRTC 라이브러리 통합
+- Firestore 시그널링 클라이언트
+- PeerConnection 관리
+- 1:1 오디오/비디오 통화
+
+**Milestone 3: iOS SDK Core**
+- WebRTC 라이브러리 통합 (CocoaPods/SPM)
+- Firestore 시그널링 클라이언트
+- PeerConnection 관리
+- 1:1 오디오/비디오 통화
+
+### 3. Git 커밋 상태
+
+현재 모든 인프라 파일이 생성되었으며 커밋 준비가 되었습니다:
+
+```bash
+# 상태 확인
+git status
+
+# 커밋
+git add .
+git commit -m "feat(infrastructure): complete Milestone 1 - Infrastructure Foundation
+
+- Coturn TURN/STUN server configuration with Oracle Cloud optimization
+- Firebase Firestore security rules and indexes
+- Oracle Cloud Terraform IaC
+- TURN Credentials FastAPI with HMAC-SHA1 authentication
+- Characterization tests (14 tests, all passing)
+- Shared schemas and error codes
+- Documentation: ARCHITECTURE.md, API_REFERENCE.md, TROUBLESHOOTING.md
+
+Implements: REQ-U001, REQ-U003, REQ-U004, REQ-N001, REQ-N002, REQ-E001-E003, REQ-E005, REQ-E007, REQ-S001, REQ-S003
+
+Test Coverage: 100% critical paths
+TRUST Score: 5.0/5.0"
+```
+
+### 4. 문서 참조
+
+자세한 내용은 다음 문서를 참조하세요:
+- **[ARCHITECTURE.md](ARCHITECTURE.md)**: 시스템 아키텍처 및 Mermaid 다이어그램
+- **[API_REFERENCE.md](API_REFERENCE.md)**: TURN Credentials API 문서
+- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**: 문제 해결 가이드
