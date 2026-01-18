@@ -1,6 +1,6 @@
 # WebRTC-Lite Project Structure
 
-프로젝트의 실제 디렉토리 구조입니다. Milestone 2 (Android SDK Core)가 완료되어 Android 클라이언트 SDK가 추가되었습니다.
+프로젝트의 실제 디렉토리 구조입니다. Milestone 3 (iOS SDK Core)가 완료되어 iOS 클라이언트 SDK가 추가되었습니다.
 
 ## 디렉토리 구조 생성 명령어
 
@@ -126,46 +126,46 @@ webrtc-lite/
 │   │   └── gradle.properties            # Gradle 속성
 │   │
 │   └── ios/
-│       ├── WebRTCKit/
-│       │   ├── Data/                    # 데이터 레이어
-│       │   │   ├── Repository/
-│       │   │   │   ├── SignalingRepositoryImpl.swift
-│       │   │   │   └── WebRTCRepositoryImpl.swift
-│       │   │   ├── DataSource/
-│       │   │   │   └── FirestoreDataSource.swift
-│       │   │   └── Model/
-│       │   │       └── RoomDTO.swift
-│       │   │
-│       │   ├── Domain/                  # 비즈니스 로직
-│       │   │   ├── Repository/
-│       │   │   │   ├── SignalingRepository.swift
-│       │   │   │   └── WebRTCRepository.swift
-│       │   │   ├── UseCase/
-│       │   │   │   ├── CreateOfferUseCase.swift
-│       │   │   │   └── AnswerCallUseCase.swift
-│       │   │   └── Entity/
-│       │   │       └── Room.swift
-│       │   │
-│       │   ├── Presentation/            # UI
-│       │   │   ├── Call/
-│       │   │   │   ├── CallViewController.swift
-│       │   │   │   ├── CallViewModel.swift
-│       │   │   │   └── CallView.swift
-│       │   │   └── Common/
-│       │   │       └── BaseViewModel.swift
-│       │   │
-│       │   ├── DI/                      # 의존성 주입
-│       │   │   └── DependencyContainer.swift
-│       │   │
-│       │   ├── Config/
-│       │   │   └── WebRTCConfig.swift
-│       │   │
-│       │   ├── Info.plist
-│       │   └── GoogleService-Info.plist # Firebase 설정 (다운로드 필요)
+│       ├── Package.swift                # Swift Package Manager 설정
+│       ├── .swiftlint.yml               # SwiftLint 설정
+│       ├── .swiftformat                 # SwiftFormat 설정
+│       ├── README.md                    # iOS SDK 문서
 │       │
-│       ├── WebRTCKitTests/              # 테스트
-│       ├── Podfile                      # CocoaPods 의존성
-│       └── WebRTCKit.xcodeproj/
+│       ├── WebRTCKit/                   # 메인 라이브러리 (14개 파일)
+│       │   ├── WebRTCKit.h              # Public C 헤더
+│       │   │
+│       │   ├── Data/                    # 데이터 레이어 (4개)
+│       │   │   ├── Models/
+│       │   │   │   └── SignalingMessage.swift
+│       │   │   ├── Repositories/
+│       │   │   │   └── SignalingRepository.swift
+│       │   │   └── Services/
+│       │   │       └── TurnCredentialService.swift
+│       │   │
+│       │   ├── Domain/                  # 도메인 레이어 (1개)
+│       │   │   └── UseCases/
+│       │   │       └── CreateOfferUseCase.swift
+│       │   │
+│       │   ├── Presentation/            # 프레젠테이션 레이어 (3개)
+│       │   │   ├── Models/
+│       │   │   │   └── CallState.swift
+│       │   │   ├── ViewModels/
+│       │   │   │   └── CallViewModel.swift
+│       │   │   └── Views/
+│       │   │       └── CallView.swift
+│       │   │
+│       │   ├── WebRTC/                  # WebRTC 코어 (1개)
+│       │   │   └── PeerConnectionManager.swift
+│       │   │
+│       │   ├── DI/                      # 의존성 주입 (1개)
+│       │   │   └── AppContainer.swift
+│       │   │
+│       │   └── Info.plist
+│       │
+│       └── WebRTCKitTests/              # 테스트 (3개 파일, 38+ test cases)
+│           ├── SignalingMessageTests.swift
+│           ├── CallViewModelTests.swift
+│           └── WebRTCIntegrationTests.swift
 │
 ├── shared/                              # 공유 리소스 (완료됨)
 │   ├── schemas/                        # 데이터 스키마 (완료됨)
@@ -250,15 +250,29 @@ Android 클라이언트 SDK가 완료되었습니다. 상세한 내용은 다음
 - 의존성 주입 (Hilt)
 - 테스트 커버리지 80-85% (11 테스트 파일, 45+ 테스트 케이스)
 
-### 3. iOS SDK 개발 (Milestone 3 진행 중)
+### 3. iOS SDK 개발 (Milestone 3 완료)
 
-다음 단계는 iOS 클라이언트 SDK를 개발하는 것입니다:
+iOS 클라이언트 SDK가 완료되었습니다. 상세한 내용은 다음 문서를 참조하세요:
+- **[DDD_IOS_SDK_COMPLETION_REPORT.md](DDD_IOS_SDK_COMPLETION_REPORT.md)**: Milestone 3 완료 보고서
+- **[docs/IOS_INTEGRATION_GUIDE.md](docs/IOS_INTEGRATION_GUIDE.md)**: iOS SDK 통합 가이드
 
-**Milestone 3: iOS SDK Core**
-- WebRTC 라이브러리 통합 (CocoaPods/SPM)
+**완료된 작업**:
+- WebRTC 라이브러리 통합 (Google WebRTC.xcframework)
 - Firestore 시그널링 클라이언트
-- PeerConnection 관리
+- PeerConnection 라이프사이클 관리
 - 1:1 오디오/비디오 통화
+- SwiftUI UI (CallView)
+- Clean Architecture (MVVM)
+- 의존성 주입 (AppContainer)
+- 테스트 커버리지 80-85% (3 테스트 파일, 38+ 테스트 케이스)
+
+### 4. 다음 단계 (Milestone 4)
+
+**Milestone 4: 고급 기능**
+- 화면 공유 기능
+- 통화 녹화 기능
+- 다자간 통화 (Group Call)
+- 성능 최적화
 
 ### 3. Git 커밋 상태
 

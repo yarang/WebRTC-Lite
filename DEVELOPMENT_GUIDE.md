@@ -227,11 +227,12 @@ dependencies {
 - SonarLint (코드 품질)
 - GitToolBox (Git 통합)
 
-### iOS 개발 환경
+### iOS 개발 환경 (Milestone 3 완료)
 
 #### 필수 소프트웨어
 - **Xcode**: 15.0 이상
-- **CocoaPods**: 1.12+ 또는 Swift Package Manager
+- **Swift**: 5.9+
+- **Swift Package Manager**: (기본 내장)
 - **macOS**: Ventura (13.0) 이상
 
 #### 환경 설정 단계
@@ -239,28 +240,145 @@ dependencies {
 # 1. 프로젝트 디렉토리 이동
 cd client-sdk/ios
 
-# 2. CocoaPods 의존성 설치
-pod install
+# 2. Swift Package Manager로 의존성 해결
+# Package.swift에 정의된 의존성이 자동으로 로드됨
+# - Firebase iOS SDK
+# - WebRTC (수동으로 xcframework 추가 필요)
 
 # 3. Firebase 설정 파일 추가
 # Firebase Console에서 GoogleService-Info.plist 다운로드
 cp ~/Downloads/GoogleService-Info.plist WebRTCKit/
 
-# 4. WebRTC 설정 업데이트
-# WebRTCKit/Config/WebRTCConfig.swift 편집
-# static let turnServerURL = "turn://<YOUR_ORACLE_VM_IP>:3478"
+# 4. WebRTC.xcframework 추가 (수동)
+# WebRTC.xcframework를 프로젝트 루트에 복사
+# Xcode에서 프로젝트 설정 > Frameworks, Libraries, and Embedded Content
+# WebRTC.xcframework 추가
 
-# 5. Xcode 워크스페이스 열기
-open WebRTCKit.xcworkspace
+# 5. SwiftLint/SwiftFormat 설정
+# .swiftlint.yml 및 .swiftformat 파일이 이미 프로젝트에 포함됨
 
-# 6. 시뮬레이터 또는 디바이스에서 실행
-# Xcode에서 Product > Run (Cmd+R)
+# 6. 빌드 및 테스트
+swift build
+swift test
+
+# 7. Xcode에서 열기 (선택사항)
+open Package.swift
+```
+
+#### 프로젝트 구조
+iOS 프로젝트는 **Clean Architecture**로 구성되었습니다:
+
+```
+client-sdk/ios/
+├── Package.swift                      # Swift Package Manager 설정
+├── .swiftlint.yml                     # SwiftLint 설정
+├── .swiftformat                       # SwiftFormat 설정
+├── WebRTCKit/                         # 메인 라이브러리
+│   ├── WebRTCKit.h                    # Public C 헤더
+│   ├── Data/                          # 데이터 레이어
+│   │   ├── Models/
+│   │   │   └── SignalingMessage.swift
+│   │   ├── Repositories/
+│   │   │   └── SignalingRepository.swift
+│   │   └── Services/
+│   │       └── TurnCredentialService.swift
+│   ├── Domain/                        # 도메인 레이어
+│   │   └── UseCases/
+│   │       └── CreateOfferUseCase.swift
+│   ├── Presentation/                  # 프레젠테이션 레이어
+│   │   ├── Models/
+│   │   │   └── CallState.swift
+│   │   ├── ViewModels/
+│   │   │   └── CallViewModel.swift
+│   │   └── Views/
+│   │       └── CallView.swift
+│   ├── WebRTC/                        # WebRTC 코어
+│   │   └── PeerConnectionManager.swift
+│   ├── DI/                            # 의존성 주입
+│   │   └── AppContainer.swift
+│   └── Info.plist
+│
+└── WebRTCKitTests/                    # 테스트 (3개 파일)
+    ├── SignalingMessageTests.swift
+    ├── CallViewModelTests.swift
+    └── WebRTCIntegrationTests.swift
+```
+
+#### 의존성 관리
+```swift
+// Package.swift
+// swift-tools-version: 5.9
+import PackageDescription
+
+let package = Package(
+    name: "WebRTCKit",
+    platforms: [.iOS(.v13)],
+    products: [
+        .library(
+            name: "WebRTCKit",
+            targets: ["WebRTCKit"])
+    ],
+    dependencies: [
+        // Firebase (SPM)
+        .package(
+            url: "https://github.com/firebase/firebase-ios-sdk.git",
+            from: "11.0.0"
+        )
+    ],
+    targets: [
+        .target(
+            name: "WebRTCKit",
+            dependencies: [
+                .product(name: "FirebaseFirestore", package: "firebase-ios-sdk")
+            ]
+        ),
+        .testTarget(
+            name: "WebRTCKitTests",
+            dependencies: ["WebRTCKit"]
+        )
+    ]
+)
 ```
 
 #### 권장 설정
 - SwiftLint 활성화 (코드 스타일 자동 검사)
 - SwiftFormat 설정 (자동 포맷팅)
 - Xcode Behaviors 커스터마이징 (빌드 완료 알림 등)
+
+#### WebRTC Framework 설치
+```bash
+# WebRTC.xcframework는 별도로 다운로드 필요
+# https://webrtc.github.io/webrtc-org/native-code/ios/
+
+# 또는 CocoaPods 사용 (대안)
+# Podfile 생성 후:
+pod install
+```
+
+#### iOS 단위 테스트
+```bash
+# Swift Package Manager 테스트
+cd client-sdk/ios
+swift test
+
+# Xcode 테스트
+xcodebuild test -scheme WebRTCKit -destination 'platform=iOS Simulator,name=iPhone 15'
+
+# 코드 커버리지
+swift test --enable-code-coverage
+```
+
+#### iOS 통합 테스트
+```bash
+# Firebase 에뮬레이터 시작
+firebase emulators:start --only firestore
+
+# 에뮬레이터 사용 설정
+# WebRTCKit/Data/Repositories/SignalingRepository.swift에서
+# Firestore.firestore().useEmulator(withHost: "localhost", port: 8080)
+```
+
+### Firebase 개발 환경
 
 ### Firebase 개발 환경
 
