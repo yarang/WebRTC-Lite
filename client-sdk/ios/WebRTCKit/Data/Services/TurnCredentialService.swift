@@ -58,10 +58,26 @@ final class TurnCredentialService: TurnCredentialServiceProtocol {
         let retryCount: Int
 
         static let `default` = TurnAPIConfig(
-            baseURL: "https://turn.example.com/api", // Replace with actual TURN API URL
+            baseURL: Self.turnAPIURL,
             timeout: 10.0,
             retryCount: 3
         )
+
+        /// Get TURN API URL from environment variable or Info.plist
+        private static var turnAPIURL: String {
+            // Try environment variable first
+            if let envURL = ProcessInfo.processInfo.environment["TURN_API_URL"], !envURL.isEmpty {
+                return envURL
+            }
+
+            // Try Info.plist
+            if let plistURL = Bundle.main.object(forInfoDictionaryKey: "TurnAPIURL") as? String, !plistURL.isEmpty {
+                return plistURL
+            }
+
+            // Fallback to localhost for development
+            return "http://localhost:8080/api"
+        }
     }
 
     // MARK: - Initialization

@@ -5,6 +5,7 @@ import Foundation
 import Combine
 import SwiftUI
 import WebRTC
+import FirebaseAuth
 
 // MARK: - Call ViewModel
 
@@ -32,6 +33,13 @@ final class CallViewModel: ObservableObject {
     private var callStartTime: Date?
     private var cancellables = Set<AnyCancellable>()
     private var connectionDurationTimer: Timer?
+
+    // MARK: - Auth Helper
+
+    /// Get current user ID from Firebase Auth
+    private var currentUserId: String {
+        return Auth.auth().currentUser?.uid ?? "anonymous"
+    }
 
     // MARK: - Initialization
 
@@ -109,7 +117,7 @@ final class CallViewModel: ObservableObject {
         do {
             try await createOfferUseCase.execute(
                 sessionId: sessionId,
-                callerId: "current-user-id", // TODO: Get from Auth
+                callerId: currentUserId
                 startMedia: true
             )
 
@@ -130,7 +138,7 @@ final class CallViewModel: ObservableObject {
         do {
             try await answerCallUseCase.execute(
                 offer: offer,
-                calleeId: "current-user-id", // TODO: Get from Auth
+                calleeId: currentUserId
                 startMedia: true
             )
 
@@ -153,7 +161,7 @@ final class CallViewModel: ObservableObject {
         do {
             try await endCallUseCase.execute(
                 sessionId: sessionId,
-                userId: "current-user-id", // TODO: Get from Auth
+                userId: currentUserId
                 reason: nil
             )
 

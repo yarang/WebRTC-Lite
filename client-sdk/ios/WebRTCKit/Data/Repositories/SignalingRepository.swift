@@ -112,15 +112,32 @@ final class SignalingRepository: SignalingRepositoryProtocol {
             .collection(collection)
             .document(sessionId)
 
-        return PassthroughSubject<SignalingMessage.Offer, Error>()
-            .handleEvents(
-                onSubscription: { _ in
-                    documentRef.addSnapshotListener { snapshot, error in
-                        // Note: This is a simplified implementation
-                        // In production, you'd need to bridge to Combine properly
-                    }
-                }
-            )
+        let subject = PassthroughSubject<SignalingMessage.Offer, Error>()
+        let listener = documentRef.addSnapshotListener { [weak subject] snapshot, error in
+            guard let subject = subject else { return }
+
+            if let error = error {
+                subject.send(completion: .failure(error))
+                return
+            }
+
+            guard let snapshot = snapshot,
+                  snapshot.exists,
+                  let data = snapshot.data() else {
+                return
+            }
+
+            do {
+                let jsonData = try JSONSerialization.data(withJSONObject: data)
+                let offer = try JSONDecoder().decode(SignalingMessage.Offer.self, from: jsonData)
+                subject.send(offer)
+            } catch {
+                subject.send(completion: .failure(error))
+            }
+        }
+
+        return subject
+            .handleEvents(receiveCancel: { listener.remove() })
             .eraseToAnyPublisher()
     }
 
@@ -129,15 +146,32 @@ final class SignalingRepository: SignalingRepositoryProtocol {
             .collection(collection)
             .document(sessionId)
 
-        return PassthroughSubject<SignalingMessage.Answer, Error>()
-            .handleEvents(
-                onSubscription: { _ in
-                    documentRef.addSnapshotListener { snapshot, error in
-                        // Note: This is a simplified implementation
-                        // In production, you'd need to bridge to Combine properly
-                    }
-                }
-            )
+        let subject = PassthroughSubject<SignalingMessage.Answer, Error>()
+        let listener = documentRef.addSnapshotListener { [weak subject] snapshot, error in
+            guard let subject = subject else { return }
+
+            if let error = error {
+                subject.send(completion: .failure(error))
+                return
+            }
+
+            guard let snapshot = snapshot,
+                  snapshot.exists,
+                  let data = snapshot.data() else {
+                return
+            }
+
+            do {
+                let jsonData = try JSONSerialization.data(withJSONObject: data)
+                let answer = try JSONDecoder().decode(SignalingMessage.Answer.self, from: jsonData)
+                subject.send(answer)
+            } catch {
+                subject.send(completion: .failure(error))
+            }
+        }
+
+        return subject
+            .handleEvents(receiveCancel: { listener.remove() })
             .eraseToAnyPublisher()
     }
 
@@ -147,15 +181,33 @@ final class SignalingRepository: SignalingRepositoryProtocol {
             .document(sessionId)
             .collection("iceCandidates")
 
-        return PassthroughSubject<SignalingMessage.IceCandidate, Error>()
-            .handleEvents(
-                onSubscription: { _ in
-                    collectionRef.addSnapshotListener { snapshot, error in
-                        // Note: This is a simplified implementation
-                        // In production, you'd need to bridge to Combine properly
-                    }
+        let subject = PassthroughSubject<SignalingMessage.IceCandidate, Error>()
+        let listener = collectionRef.addSnapshotListener { [weak subject] snapshot, error in
+            guard let subject = subject else { return }
+
+            if let error = error {
+                subject.send(completion: .failure(error))
+                return
+            }
+
+            guard let snapshot = snapshot else { return }
+
+            snapshot.documentChanges.forEach { change in
+                guard change.type == .added || change.type == .modified else { return }
+
+                do {
+                    let data = change.document.data()
+                    let jsonData = try JSONSerialization.data(withJSONObject: data ?? [:])
+                    let candidate = try JSONDecoder().decode(SignalingMessage.IceCandidate.self, from: jsonData)
+                    subject.send(candidate)
+                } catch {
+                    // Silently skip invalid candidates
                 }
-            )
+            }
+        }
+
+        return subject
+            .handleEvents(receiveCancel: { listener.remove() })
             .eraseToAnyPublisher()
     }
 
