@@ -4,6 +4,7 @@
 - [개발 환경 설정](#개발-환경-설정)
 - [프로젝트 구조](#프로젝트-구조)
 - [개발 워크플로우](#개발-워크플로우)
+- [고급 기능 개발](#고급-기능-개발)
 - [코딩 컨벤션](#코딩-컨벤션)
 - [테스트 전략](#테스트-전략)
 - [디버깅 가이드](#디버깅-가이드)
@@ -620,6 +621,295 @@ git push origin feature/add-screen-sharing
 #### 8. Merge
 - Squash and Merge (권장)
 - 피처 브랜치 삭제
+
+---
+
+## 고급 기능 개발
+
+### 네트워크 모니터링 (Milestone 4)
+
+Milestone 4에서 구현된 고급 기능들을 사용하는 방법입니다.
+
+#### Android 네트워크 모니터링 설정
+
+**RTCStatsCollector 통합**:
+```kotlin
+// PeerConnectionManager에서 stats collector 사용
+class PeerConnectionManager(
+    private val context: Context
+) {
+    private val statsCollector = RTCStatsCollector(peerConnection)
+
+    fun startMonitoring() {
+        statsCollector.start()
+    }
+
+    fun getQualityMetrics(): QualityMetrics {
+        return statsCollector.getCurrentMetrics()
+    }
+}
+```
+
+**QualityMetricsOverlay 사용**:
+```kotlin
+// CallScreen.kt에서 품질 메트릭 표시
+@Composable
+fun CallScreen(viewModel: CallViewModel = hiltViewModel()) {
+    val qualityMetrics by viewModel.qualityMetrics.collectAsState()
+
+    Box {
+        VideoCallContent()
+        QualityMetricsOverlay(
+            metrics = qualityMetrics,
+            onDismiss = { viewModel.toggleQualityOverlay() }
+        )
+    }
+}
+```
+
+#### iOS 네트워크 모니터링 설정
+
+**RTCStatsCollector 통합**:
+```swift
+// PeerConnectionManager에서 stats collector 사용
+class PeerConnectionManager {
+    private let statsCollector: RTCStatsCollector
+
+    init(peerConnection: RTCPeerConnection) {
+        self.statsCollector = RTCStatsCollector(peerConnection: peerConnection)
+    }
+
+    func startMonitoring() {
+        statsCollector.start()
+    }
+
+    func getQualityMetrics() -> QualityMetrics {
+        return statsCollector.getCurrentMetrics()
+    }
+}
+```
+
+**QualityMetricsOverlay 사용**:
+```swift
+// CallView.swift에서 품질 메트릭 표시
+struct CallView: View {
+    @StateObject var viewModel: CallViewModel
+    @State var showQualityMetrics = false
+
+    var body: some View {
+        ZStack {
+            VideoCallContent()
+            if showQualityMetrics {
+                QualityMetricsOverlay(metrics: viewModel.qualityMetrics)
+            }
+        }
+    }
+}
+```
+
+### 자동 재연결 (Milestone 4)
+
+#### Android 자동 재연결 설정
+
+**ReconnectionManager 통합**:
+```kotlin
+// CallViewModel에서 재연결 관리자 사용
+class CallViewModel @Inject constructor(
+    private val webRTCRepository: WebRTCRepository,
+    private val reconnectionManager: ReconnectionManager
+) : ViewModel() {
+
+    fun handleConnectionFailure(error: WebRTCException) {
+        when {
+            error.isMinor() -> reconnectionManager.handleMinorFailure()
+            error.isMajor() -> reconnectionManager.handleMajorFailure()
+            error.isFatal() -> reconnectionManager.handleFatalFailure()
+        }
+
+        when (reconnectionManager.state) {
+            ReconnectionState.STABLE -> {
+                // 연결이 안정적임, 아무 작업 없음
+            }
+            ReconnectionState.RECONNECTING -> {
+                // 재연결 진행 중 UI 표시
+                _callState.update { it.copy(isReconnecting = true) }
+            }
+            ReconnectionState.FAILED -> {
+                // 재연결 실패, 사용자에게 알림
+                _callState.update { it.copy(
+                    isReconnecting = false,
+                    errorMessage = "Connection failed after multiple attempts"
+                ) }
+            }
+        }
+    }
+}
+```
+
+#### iOS 자동 재연결 설정
+
+**ReconnectionManager 통합**:
+```swift
+// CallViewModel에서 재연결 관리자 사용
+class CallViewModel: ObservableObject {
+    private let reconnectionManager: ReconnectionManager
+
+    func handleConnectionFailure(error: Error) {
+        switch error.severity {
+        case .minor:
+            reconnectionManager.handleMinorFailure()
+        case .major:
+            reconnectionManager.handleMajorFailure()
+        case .fatal:
+            reconnectionManager.handleFatalFailure()
+        }
+
+        switch reconnectionManager.state {
+        case .stable:
+            // 연결이 안정적임
+            break
+        case .reconnecting:
+            // 재연결 진행 중 UI 표시
+            isReconnecting = true
+        case .failed:
+            // 재연결 실패
+            isReconnecting = false
+            errorMessage = "Connection failed after multiple attempts"
+        }
+    }
+}
+```
+
+### TURN 자격 증명 자동 갱신 (Milestone 4)
+
+#### Android TURN 자격 증명 자동 갱신
+
+**앱 시작 시 자동 갱신 시작**:
+```kotlin
+// Application 클래스에서
+class WebRTCApplication : Application() {
+    @Inject lateinit var turnCredentialService: TurnCredentialService
+
+    override fun onCreate() {
+        super.onCreate()
+        // 자동 갱신 시작
+        turnCredentialService.startAutoRefresh()
+    }
+}
+```
+
+**캐시 상태 확인**:
+```kotlin
+// TURN 자격 증명 사용 전
+val credentials = turnCredentialService.getCredentials(userId)
+
+if (turnCredentialService.isCached()) {
+    val timeToExpiry = turnCredentialService.getTimeToExpiry()
+    if (timeToExpiry < 300) {
+        // 5분 이내에 만료됨, 갱신 필요
+        turnCredentialService.refreshCredentials(userId)
+    }
+}
+```
+
+#### iOS TURN 자격 증명 자동 갱신
+
+**앱 시작 시 자동 갱신 시작**:
+```swift
+// AppContainer에서
+class AppContainer {
+    let turnCredentialService: TurnCredentialService
+
+    init() {
+        self.turnCredentialService = TurnCredentialService()
+        // 자동 갱신 시작
+        self.turnCredentialService.startAutoRefresh()
+    }
+}
+```
+
+**캐시 상태 확인**:
+```swift
+// TURN 자격 증명 사용 전
+let credentials = turnCredentialService.getCredentials(username: userId)
+
+if turnCredentialService.isCached() {
+    let timeToExpiry = turnCredentialService.getTimeToExpiry()
+    if timeToExpiry < 300 {
+        // 5분 이내에 만료됨, 갱신 필요
+        turnCredentialService.refreshCredentials(username: userId)
+    }
+}
+```
+
+### 백그라운드 상태 처리 (Milestone 4)
+
+#### Android 백그라운드 서비스 설정
+
+**AndroidManifest.xml에 권한 추가**:
+```xml
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+```
+
+**백그라운드 서비스 시작**:
+```kotlin
+// CallViewModel에서
+fun startBackgroundService() {
+    val intent = Intent(context, WebRTCBackgroundService::class.java)
+    ContextCompat.startForegroundService(context, intent)
+}
+
+fun stopBackgroundService() {
+    val intent = Intent(context, WebRTCBackgroundService::class.java)
+    context.stopService(intent)
+}
+```
+
+#### iOS 백그라운드 상태 처리
+
+**Info.plist에 백그라운드 모드 추가**:
+```xml
+<key>UIBackgroundModes</key>
+<array>
+    <string>audio</string>
+    <string>voip</string>
+</array>
+```
+
+**백그라운드 핸들러 설정**:
+```swift
+// AppContainer에서 초기화
+let backgroundHandler = BackgroundStateHandler()
+backgroundHandler.start()
+
+// CallViewModel에서 사용
+func handleBackgroundTransition() {
+    backgroundHandler.onDidEnterBackground {
+        // 5분 타이머 시작
+        self.startBackgroundTimeout()
+    }
+
+    backgroundHandler.onWillEnterForeground {
+        // 타이머 취소 및 세션 복원
+        self.cancelBackgroundTimeout()
+    }
+}
+```
+
+### 품질 메트릭 해석
+
+**품질 상태**:
+- **Excellent (85-100점)**: 녹색 - 최적 연결 상태
+- **Good (70-84점)**: 연두색 - 양호한 연결 상태
+- **Fair (50-69점)**: 주황색 - 보통 연결 상태
+- **Poor (0-49점)**: 빨간색 - 나쁜 연결 상태
+
+**품질 점수 계산**:
+- RTT (왕복 시간): <50ms (우수), <100ms (양호), <200ms (보통), >=200ms (나쁨)
+- 패킷 손실률: <1% (우수), <3% (양호), <5% (보통), >=5% (나쁨)
+- 비트레이트: >1Mbps (우수), >500Kbps (양호), >250Kbps (보통), <=250Kbps (나쁨)
 
 ---
 

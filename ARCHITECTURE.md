@@ -6,6 +6,7 @@
 - [아키텍처 원칙](#아키텍처-원칙)
 - [시스템 구성 요소](#시스템-구성-요소)
 - [데이터 흐름](#데이터-흐름)
+- [고급 기능 아키텍처](#고급-기능-아키텍처)
 - [보안 아키텍처](#보안-아키텍처)
 - [확장성 전략](#확장성-전략)
 - [기술 스택](#기술-스택)
@@ -277,6 +278,338 @@ flowchart LR
 
     style B2 fill:#fff3cd
     style B3 fill:#d1ecf1
+```
+
+---
+
+## 고급 기능 아키텍처 (Milestone 4)
+
+### 네트워크 모니터링 및 품질 메트릭
+
+Milestone 4에서 구현된 RTCStats 기반 모니터링 시스템입니다.
+
+#### RTCStats Collection Flow
+
+```mermaid
+sequenceDiagram
+    participant UI as QualityMetricsOverlay
+    participant VM as CallViewModel
+    participant PC as PeerConnectionManager
+    participant SC as RTCStatsCollector
+    participant RTC as WebRTC API
+
+    Note over UI,RTC: 매 1초마다 stats 수집
+
+    loop Every 1 second
+        SC->>RTC: getStats()
+        RTC-->>SC: RTCStatsReport
+        SC->>SC: Extract metrics (RTT, packet loss, bitrate)
+        SC->>SC: Calculate quality score (0-100)
+        SC->>SC: Determine quality state
+        SC->>VM: Update quality metrics
+        VM->>UI: StateFlow/@Published update
+        UI->>UI: Color-coded display
+    end
+```
+
+#### Quality Score Calculation Algorithm
+
+```mermaid
+flowchart TD
+    A[RTCStatsCollector receives stats] --> B[Extract RTT]
+    A --> C[Extract Packet Loss]
+    A --> D[Extract Bitrate]
+
+    B --> E{RTT Score}
+    E -->|< 50ms| F[25 points]
+    E -->|< 100ms| G[18 points]
+    E -->|< 200ms| H[10 points]
+    E -->|>= 200ms| I[5 points]
+
+    C --> J{Packet Loss Score}
+    J -->|< 1%| K[40 points]
+    J -->|< 3%| L[30 points]
+    J -->|< 5%| M[20 points]
+    J -->|>= 5%| N[10 points]
+
+    D --> O{Bitrate Score}
+    O -->|> 1Mbps| P[35 points]
+    O -->|> 500Kbps| Q[25 points]
+    O -->|> 250Kbps| R[15 points]
+    O -->|<= 250Kbps| S[5 points]
+
+    F --> T[Sum: RTT + Loss + Bitrate]
+    G --> T
+    H --> T
+    I --> T
+    K --> T
+    L --> T
+    M --> T
+    N --> T
+    P --> T
+    Q --> T
+    R --> T
+    S --> T
+
+    T --> U{Quality State}
+    U -->|85-100| V[EXCELLENT - Green]
+    U -->|70-84| W[GOOD - Light Green]
+    U -->|50-69| X[FAIR - Orange]
+    U -->|0-49| Y[POOR - Red]
+```
+
+### 자동 재연결 상태 머신
+
+#### Reconnection State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> STABLE: 초기화
+    STABLE --> RECONNECTING: ICE connection failure
+
+    state RECONNECTING {
+        [*] --> Attempt1
+        Attempt1 --> Attempt2: 1초 후 실패
+        Attempt2 --> Attempt3: 2초 후 실패
+        Attempt3 --> FAILED: 4초 후 실패
+        Attempt1 --> STABLE: 성공
+        Attempt2 --> STABLE: 성공
+        Attempt3 --> STABLE: 성공
+    }
+
+    RECONNECTING --> STABLE: 재연결 성공
+    RECONNECTING --> FAILED: 최대 재시도 도달
+    FAILED --> [*]
+
+    note right of STABLE
+        정상 연결 상태
+        재시도 카운트 = 0
+    end note
+
+    note right of RECONNECTING
+        Minor: ICE restart
+        Major: Full reconnection
+        Exponential backoff
+    end note
+
+    note right of FAILED
+        3회 재시도 실패
+        사용자에게 알림 필요
+    end note
+```
+
+#### Reconnection Strategy Decision
+
+```mermaid
+flowchart TD
+    A[Connection Failure Detected] --> B{Failure Type}
+
+    B -->|MINOR| C[ICE Restart Strategy]
+    B -->|MAJOR| D[Full Reconnection Strategy]
+    B -->|FATAL| E[No Recovery]
+
+    C --> F[Keep existing PeerConnection]
+    C --> G[Create new offer]
+    C --> H[Restart ICE gathering]
+
+    D --> I[Close old PeerConnection]
+    D --> J[Create new PeerConnection]
+    D --> K[Full renegotiation]
+
+    E --> L[Set state to FAILED]
+    E --> M[Notify user]
+
+    H --> N{Retry Limit Reached?}
+    K --> N
+    N -->|No| O[Increment retry count]
+    N -->|Yes| L
+    O --> P{Attempt Successful?}
+    P -->|Yes| Q[Return to STABLE]
+    P -->|No| R[Wait backoff time]
+    R --> N
+
+    style C fill:#e1f5e1
+    style D fill:#fff3cd
+    style E fill:#f5e1e1
+    style Q fill:#e1f5e1
+    style L fill:#f5e1e1
+```
+
+### TURN 자격 증명 캐싱 및 자동 갱신
+
+#### Caching and Auto-Refresh Flow
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant TCS as TurnCredentialService
+    participant API as TURN API
+    participant Cache as In-Memory Cache
+
+    Note over App,Cache: 앱 시작 시
+    App->>TCS: startAutoRefresh()
+    TCS->>TCS: Start 60s timer
+
+    loop Every 60 seconds
+        TCS->>Cache: Check cached credentials
+        Cache-->>TCS: Return cached or null
+
+        alt Cache exists
+            TCS->>TCS: Calculate time to expiry
+            alt Time to expiry < 5 minutes
+                TCS->>API: Request fresh credentials
+                API-->>TCS: New credentials
+                TCS->>Cache: Update cache
+            end
+        else Cache empty
+            TCS->>API: Request credentials
+            API-->>TCS: New credentials
+            TCS->>Cache: Store in cache
+        end
+    end
+
+    Note over App,Cache: 자격 증명 요청 시
+    App->>TCS: getCredentials(username)
+    TCS->>Cache: Check cache
+    Cache-->>TCS: Return cached credentials
+    TCS-->>App: Return credentials (fast path)
+```
+
+#### Cache State Management
+
+```mermaid
+stateDiagram-v2
+    [*] --> EMPTY: 초기 상태
+    EMPTY --> FETCHING: getCredentials() 호출
+    FETCHING --> CACHED: 자격 증명 수신 완료
+    CACHED --> REFRESHING: 5분 전 자동 갱신
+    REFRESHING --> CACHED: 갱신 성공
+    CACHED --> EXPIRED: TTL 만료
+    EXPIRED --> FETCHING: 재요청
+    CACHED --> [*]: 앱 종료
+
+    note right of CACHED
+        자격 증명 사용 가능
+        Thread-safe access
+        Mutex/NSLock 보호
+    end note
+
+    note right of REFRESHING
+        백그라운드 갱신 중
+        기존 자격 증명 계속 사용
+    end note
+```
+
+### 백그라운드 상태 처리
+
+#### Android Background Service Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE: 초기 상태
+    IDLE --> FOREGROUND: 통화 시작
+    FOREGROUND --> FOREGROUND_SERVICE: 백그라운드 전환
+    FOREGROUND_SERVICE --> BACKGROUND_TIMEOUT: 5분 타이머 시작
+
+    state BACKGROUND_TIMEOUT {
+        [*] --> Warning1: 1분 경과
+        Warning1 --> Warning2: 2분 경과
+        Warning2 --> Warning3: 3분 경과
+        Warning3 --> Warning4: 4분 경과
+        Warning4 --> TIMEOUT: 5분 경과
+    }
+
+    BACKGROUND_TIMEOUT --> CLEANUP: 타임아웃 도달
+    BACKGROUND_TIMEOUT --> FOREGROUND: 포그라운드 복귀
+
+    CLEANUP --> [*]: 세션 종료
+    FOREGROUND --> IDLE: 통화 종료
+
+    note right of FOREGROUND_SERVICE
+        Foreground Service 실행
+        알림 표시 중
+        WebRTC 세션 유지
+    end note
+
+    note right of CLEANUP
+        PeerConnection 정리
+        Foreground Service 중지
+        알림 제거
+    end note
+```
+
+#### iOS Background State Handling
+
+```mermaid
+stateDiagram-v2
+    [*] --> ACTIVE: 앱 활성화
+    ACTIVE --> BACKGROUND: didEnterBackground
+
+    state BACKGROUND {
+        [*] --> Monitoring: 5분 타이머 시작
+        Monitoring --> FOREGROUND_RETURN: willEnterForeground
+        Monitoring --> TIMEOUT: 5분 경과
+    }
+
+    BACKGROUND --> ACTIVE: 포그라운드 복귀 (타이머 내)
+    BACKGROUND --> CLEANUP: 타임아웃 발생
+
+    CLEANUP --> [*]: 세션 정리
+    ACTIVE --> [*]: 앱 종료
+
+    note right of Monitoring
+        Audio session 활성화
+        WebRTC 세션 유지
+        VoIP 백그라운드 모드
+    end note
+
+    note right of CLEANUP
+        PeerConnection close
+        Audio session 정리
+        상태 초기화
+    end note
+```
+
+### Advanced Features Integration
+
+```mermaid
+graph TB
+    subgraph "Advanced Features Layer"
+        A[RTCStatsCollector]
+        B[ReconnectionManager]
+        C[QualityMetricsOverlay]
+        D[TurnCredentialService]
+        E[WebRTCBackgroundService]
+        F[BackgroundStateHandler]
+    end
+
+    subgraph "Core WebRTC Layer"
+        G[PeerConnectionManager]
+        H[CallViewModel]
+        I[SignalingRepository]
+    end
+
+    subgraph "UI Layer"
+        J[CallScreen/CallView]
+    end
+
+    A --> G
+    B --> H
+    C --> J
+    D --> I
+    E --> H
+    F --> H
+
+    A --> C
+    B --> G
+    D --> D
+
+    style A fill:#d1ecf1
+    style B fill:#fff3cd
+    style C fill:#e1f5e1
+    style D fill:#d4edda
+    style E fill:#f8d7da
+    style F fill:#f8d7da
 ```
 
 ---
@@ -1084,6 +1417,21 @@ stateDiagram-v2
 
 ---
 
-**문서 버전**: 1.0.0
-**마지막 업데이트**: 2026-01-18
+**문서 버전**: 2.0.0
+**마지막 업데이트**: 2026-01-19
 **작성자**: WebRTC-Lite Team
+
+## 변경 이력
+
+### v2.0.0 (2026-01-19)
+- Milestone 4 고급 기능 아키텍처 추가
+- 네트워크 모니터링 및 품질 메트릭 섹션 추가
+- 자동 재연결 상태 머신 다이어그램 추가
+- TURN 자격 증명 캐싱 및 자동 갱신 흐름 추가
+- 백그라운드 상태 처리 라이프사이클 다이어그램 추가
+
+### v1.0.0 (2026-01-18)
+- 초기 시스템 아키텍처 문서
+- Android/iOS 클라이언트 아키텍처
+- C4 컨테이너 다이어그램
+- WebRTC 연결 시퀀스 다이어그램

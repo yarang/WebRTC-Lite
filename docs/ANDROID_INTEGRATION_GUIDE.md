@@ -9,6 +9,7 @@ Android WebRTC SDK 통합 가이드입니다.
 - [모듈 가져오기](#모듈-가져오기)
 - [Firebase 설정](#firebase-설정)
 - [기본 사용법](#기본-사용법)
+- [고급 기능](#고급-기능)
 - [API 참조](#api-참조)
 - [권한 처리](#권한-처리)
 - [오류 처리](#오류-처리)
@@ -191,6 +192,120 @@ viewModel.onEvent(CallUiEvent.StartCall(roomId = "room-123"))
 // 통화 종료
 viewModel.onEvent(CallUiEvent.EndCall)
 ```
+
+---
+
+## 고급 기능 (Milestone 4)
+
+Milestone 4에서 구현된 고급 기능들을 사용하는 방법입니다.
+
+### 네트워크 모니터링
+
+**RTCStatsCollector 통합**:
+
+```kotlin
+class PeerConnectionManager(
+    private val context: Context
+) {
+    private val statsCollector = RTCStatsCollector(peerConnection)
+
+    fun startCall() {
+        statsCollector.start()
+    }
+
+    fun getQualityMetrics(): QualityMetrics {
+        return statsCollector.getCurrentMetrics()
+    }
+
+    fun endCall() {
+        statsCollector.stop()
+    }
+}
+```
+
+**품질 메트릭 UI 표시**:
+
+```kotlin
+@Composable
+fun CallScreen(viewModel: CallViewModel) {
+    val qualityMetrics by viewModel.qualityMetrics.collectAsState()
+
+    Box {
+        VideoCallContent()
+
+        if (viewModel.showQualityMetrics) {
+            QualityMetricsOverlay(
+                metrics = qualityMetrics,
+                onDismiss = { viewModel.toggleQualityOverlay() }
+            )
+        }
+    }
+}
+```
+
+### 자동 재연결
+
+**ReconnectionManager 사용**:
+
+```kotlin
+class CallViewModel @Inject constructor(
+    private val reconnectionManager: ReconnectionManager
+) : ViewModel() {
+
+    fun handleConnectionFailure(error: WebRTCException) {
+        when {
+            error.isMinor() -> reconnectionManager.handleMinorFailure()
+            error.isMajor() -> reconnectionManager.handleMajorFailure()
+            error.isFatal() -> reconnectionManager.handleFatalFailure()
+        }
+    }
+}
+```
+
+### TURN 자격 증명 자동 갱신
+
+**앱 시작 시 자동 갱신**:
+
+```kotlin
+class WebRTCApplication : Application() {
+    @Inject lateinit var turnCredentialService: TurnCredentialService
+
+    override fun onCreate() {
+        super.onCreate()
+        turnCredentialService.startAutoRefresh()
+    }
+}
+```
+
+### 백그라운드 서비스
+
+**Foreground Service 시작**:
+
+```kotlin
+// AndroidManifest.xml에 권한 추가
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+// CallViewModel에서 서비스 시작
+fun startCall() {
+    val intent = Intent(context, WebRTCBackgroundService::class.java)
+    ContextCompat.startForegroundService(context, intent)
+}
+
+fun endCall() {
+    val intent = Intent(context, WebRTCBackgroundService::class.java)
+    context.stopService(intent)
+}
+```
+
+### 품질 메트릭 해석
+
+| 품질 점수 | 상태 | 색상 | 설명 |
+|---------|------|------|------|
+| 85-100 | EXCELLENT | Green | 최적 연결 |
+| 70-84 | GOOD | Light Green | 양호한 연결 |
+| 50-69 | FAIR | Orange | 보통 연결 |
+| 0-49 | POOR | Red | 나쁜 연결 |
 
 ---
 

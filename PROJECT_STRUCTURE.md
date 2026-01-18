@@ -1,6 +1,6 @@
 # WebRTC-Lite Project Structure
 
-프로젝트의 실제 디렉토리 구조입니다. Milestone 3 (iOS SDK Core)가 완료되어 iOS 클라이언트 SDK가 추가되었습니다.
+프로젝트의 실제 디렉토리 구조입니다. Milestone 4 (Advanced Features)가 완료되어 고급 기능 모듈이 추가되었습니다.
 
 ## 디렉토리 구조 생성 명령어
 
@@ -97,14 +97,19 @@ webrtc-lite/
 │   │   │   │   │   │   └── CallUiEvent.kt
 │   │   │   │   │   ├── viewmodel/
 │   │   │   │   │   │   └── CallViewModel.kt
-│   │   │   │   │   └── ui/
-│   │   │   │   │       ├── CallScreen.kt
-│   │   │   │   │       └── PermissionManager.kt
+│   │   │   │   │   ├── ui/
+│   │   │   │   │   │   ├── CallScreen.kt
+│   │   │   │   │   │   ├── QualityMetricsOverlay.kt
+│   │   │   │   │   │   └── PermissionManager.kt
+│   │   │   │   │   └── service/
+│   │   │   │   │       └── WebRTCBackgroundService.kt
 │   │   │   │   │
 │   │   │   │   └── webrtc/              # WebRTC 코어
-│   │   │   │       └── PeerConnectionManager.kt
+│   │   │   │       ├── PeerConnectionManager.kt
+│   │   │   │       ├── RTCStatsCollector.kt
+│   │   │   │       └── ReconnectionManager.kt
 │   │   │   │
-│   │   │   ├── src/test/                # 단위 테스트 (11개 파일)
+│   │   │   ├── src/test/                # 단위 테스트 (13개 파일)
 │   │   │   │   └── java/com/webrtclite/core/
 │   │   │   │       ├── data/
 │   │   │   │       ├── domain/
@@ -146,26 +151,33 @@ webrtc-lite/
 │       │   │   └── UseCases/
 │       │   │       └── CreateOfferUseCase.swift
 │       │   │
-│       │   ├── Presentation/            # 프레젠테이션 레이어 (3개)
+│       │   ├── Presentation/            # 프레젠테이션 레이어 (4개)
 │       │   │   ├── Models/
 │       │   │   │   └── CallState.swift
 │       │   │   ├── ViewModels/
 │       │   │   │   └── CallViewModel.swift
-│       │   │   └── Views/
-│       │   │       └── CallView.swift
+│       │   │   ├── Views/
+│       │   │   │   ├── CallView.swift
+│       │   │   │   └── QualityMetricsOverlay.swift
+│       │   │   └── Managers/
+│       │   │       └── BackgroundStateHandler.swift
 │       │   │
-│       │   ├── WebRTC/                  # WebRTC 코어 (1개)
-│       │   │   └── PeerConnectionManager.swift
+│       │   ├── WebRTC/                  # WebRTC 코어 (3개)
+│       │   │   ├── PeerConnectionManager.swift
+│       │   │   ├── RTCStatsCollector.swift
+│       │   │   └── ReconnectionManager.swift
 │       │   │
 │       │   ├── DI/                      # 의존성 주입 (1개)
 │       │   │   └── AppContainer.swift
 │       │   │
 │       │   └── Info.plist
 │       │
-│       └── WebRTCKitTests/              # 테스트 (3개 파일, 38+ test cases)
+│       └── WebRTCKitTests/              # 테스트 (5개 파일, 56+ test cases)
 │           ├── SignalingMessageTests.swift
 │           ├── CallViewModelTests.swift
-│           └── WebRTCIntegrationTests.swift
+│           ├── WebRTCIntegrationTests.swift
+│           ├── RTCStatsCollectorTests.swift
+│           └── ReconnectionManagerTests.swift
 │
 ├── shared/                              # 공유 리소스 (완료됨)
 │   ├── schemas/                        # 데이터 스키마 (완료됨)
@@ -248,12 +260,13 @@ Android 클라이언트 SDK가 완료되었습니다. 상세한 내용은 다음
 - Jetpack Compose UI
 - Clean Architecture (MVVM)
 - 의존성 주입 (Hilt)
-- 테스트 커버리지 80-85% (11 테스트 파일, 45+ 테스트 케이스)
+- 테스트 커버리지 85-90% (13 테스트 파일, 65+ 테스트 케이스)
 
 ### 3. iOS SDK 개발 (Milestone 3 완료)
 
 iOS 클라이언트 SDK가 완료되었습니다. 상세한 내용은 다음 문서를 참조하세요:
 - **[DDD_IOS_SDK_COMPLETION_REPORT.md](DDD_IOS_SDK_COMPLETION_REPORT.md)**: Milestone 3 완료 보고서
+- **[DDD_MILESTONE_4_COMPLETION_REPORT.md](DDD_MILESTONE_4_COMPLETION_REPORT.md)**: Milestone 4 완료 보고서
 - **[docs/IOS_INTEGRATION_GUIDE.md](docs/IOS_INTEGRATION_GUIDE.md)**: iOS SDK 통합 가이드
 
 **완료된 작업**:
@@ -264,17 +277,17 @@ iOS 클라이언트 SDK가 완료되었습니다. 상세한 내용은 다음 문
 - SwiftUI UI (CallView)
 - Clean Architecture (MVVM)
 - 의존성 주입 (AppContainer)
-- 테스트 커버리지 80-85% (3 테스트 파일, 38+ 테스트 케이스)
+- 테스트 커버리지 85-90% (5 테스트 파일, 56+ 테스트 케이스)
 
-### 4. 다음 단계 (Milestone 4)
+### 5. 다음 단계 (Milestone 5)
 
-**Milestone 4: 고급 기능**
-- 화면 공유 기능
-- 통화 녹화 기능
+**Milestone 5: 화면 공유 및 녹화**
+- 화면 공유 기능 (Screen Sharing)
+- 통화 녹화 기능 (Call Recording)
 - 다자간 통화 (Group Call)
-- 성능 최적화
+- 성능 최적화 및 확장성
 
-### 3. Git 커밋 상태
+### 4. Git 커밋 상태
 
 현재 모든 인프라 파일이 생성되었으며 커밋 준비가 되었습니다:
 

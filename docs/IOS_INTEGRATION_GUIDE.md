@@ -9,6 +9,7 @@ iOS WebRTC SDK 통합 가이드입니다.
 - [패키지 가져오기](#패키지-가져오기)
 - [Firebase 설정](#firebase-설정)
 - [기본 사용법](#기본-사용법)
+- [고급 기능](#고급-기능)
 - [API 참조](#api-참조)
 - [권한 처리](#권한-처리)
 - [오류 처리](#오류-처리)
@@ -66,7 +67,7 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/your-repo/webrtc-lite-ios.git",
-            from: "0.3.0"
+            from: "0.4.0"
         )
     ],
     targets: [
@@ -201,6 +202,130 @@ Task {
     try await viewModel.endCall()
 }
 ```
+
+---
+
+## 고급 기능 (Milestone 4)
+
+Milestone 4에서 구현된 고급 기능들을 사용하는 방법입니다.
+
+### 네트워크 모니터링
+
+**RTCStatsCollector 통합**:
+
+```swift
+class PeerConnectionManager {
+    private let statsCollector: RTCStatsCollector
+
+    init(peerConnection: RTCPeerConnection) {
+        self.statsCollector = RTCStatsCollector(peerConnection: peerConnection)
+    }
+
+    func startCall() {
+        statsCollector.start()
+    }
+
+    func getQualityMetrics() -> QualityMetrics {
+        return statsCollector.getCurrentMetrics()
+    }
+
+    func endCall() {
+        statsCollector.stop()
+    }
+}
+```
+
+**품질 메트릭 UI 표시**:
+
+```swift
+struct CallView: View {
+    @StateObject var viewModel: CallViewModel
+    @State var showQualityMetrics = false
+
+    var body: some View {
+        ZStack {
+            VideoCallContent()
+
+            if showQualityMetrics {
+                QualityMetricsOverlay(metrics: viewModel.qualityMetrics)
+            }
+        }
+    }
+}
+```
+
+### 자동 재연결
+
+**ReconnectionManager 사용**:
+
+```swift
+class CallViewModel: ObservableObject {
+    private let reconnectionManager: ReconnectionManager
+
+    func handleConnectionFailure(error: Error) {
+        switch error.severity {
+        case .minor:
+            reconnectionManager.handleMinorFailure()
+        case .major:
+            reconnectionManager.handleMajorFailure()
+        case .fatal:
+            reconnectionManager.handleFatalFailure()
+        }
+    }
+}
+```
+
+### TURN 자격 증명 자동 갱신
+
+**앱 시작 시 자동 갱신**:
+
+```swift
+class AppContainer {
+    let turnCredentialService: TurnCredentialService
+
+    init() {
+        self.turnCredentialService = TurnCredentialService()
+        self.turnCredentialService.startAutoRefresh()
+    }
+}
+```
+
+### 백그라운드 상태 처리
+
+**BackgroundStateHandler 사용**:
+
+```swift
+// Info.plist에 백그라운드 모드 추가
+<key>UIBackgroundModes</key>
+<array>
+    <string>audio</string>
+    <string>voip</string>
+</array>
+
+// AppContainer에서 초기화
+let backgroundHandler = BackgroundStateHandler()
+backgroundHandler.start()
+
+// CallViewModel에서 사용
+func handleBackgroundTransition() {
+    backgroundHandler.onDidEnterBackground {
+        self.startBackgroundTimeout()
+    }
+
+    backgroundHandler.onWillEnterForeground {
+        self.cancelBackgroundTimeout()
+    }
+}
+```
+
+### 품질 메트릭 해석
+
+| 품질 점수 | 상태 | 색상 | 설명 |
+|---------|------|------|------|
+| 85-100 | EXCELLENT | Green | 최적 연결 |
+| 70-84 | GOOD | Light Green | 양호한 연결 |
+| 50-69 | FAIR | Orange | 보통 연결 |
+| 0-49 | POOR | Red | 나쁜 연결 |
 
 ---
 
