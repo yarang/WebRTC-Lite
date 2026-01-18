@@ -9,7 +9,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Service for managing TURN server credentials with caching
+ * Service for managing TURN server credentials with caching and auto-refresh
  * Provides credentials for NAT traversal in WebRTC
  */
 @Singleton
@@ -18,11 +18,33 @@ class TurnCredentialService @Inject constructor(
 ) {
     private val cache = ConcurrentHashMap<String, CachedCredential>()
     private val mutex = Mutex()
+    private var refreshJob: kotlinx.coroutines.Job? = null
+
+    companion object {
+        private const val REFRESH_BUFFER_MS = 5 * 60 * 1000L // 5 minutes before expiry
+        private const val MIN_CHECK_INTERVAL_MS = 60 * 1000L // Check every minute
+    }
 
     private data class CachedCredential(
         val credential: SignalingMessage.TurnCredential,
-        val expiresAt: Long
-    )
+        val expiresAt: Long,
+        val lastRefresh: Long = System.currentTimeMillis()
+    ) {
+        /**
+         * Check if credential needs refresh (5 minutes before expiry)
+         */
+        fun needsRefresh(): Boolean {
+            val now = System.currentTimeMillis()
+            return (expiresAt - now) <= REFRESH_BUFFER_MS
+        }
+
+        /**
+         * Check if credential is expired
+         */
+        fun isExpired(): Boolean {
+            return System.currentTimeMillis() >= expiresAt
+        }
+    }
 
     /**
      * Get TURN credentials for a session
@@ -87,5 +109,88 @@ class TurnCredentialService @Inject constructor(
      */
     suspend fun clearAllCache() {
         cache.clear()
+    }
+
+    /**
+     * Start auto-refresh for cached credentials
+     * Checks periodically and refreshes credentials before expiry
+     */
+    fun startAutoRefresh() {
+        if (refreshJob?.isActive == true) {
+            return // Already running
+        }
+
+        refreshJob = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            while (isActive) {
+                delay(MIN_CHECK_INTERVAL_MS)
+                refreshExpiringCredentials()
+            }
+        }
+    }
+
+    /**
+     * Stop auto-refresh
+     */
+    fun stopAutoRefresh() {
+        refreshJob?.cancel()
+        refreshJob = null
+    }
+
+    /**
+     * Refresh credentials that are about to expire (within 5 minutes)
+     */
+    private suspend fun refreshExpiringCredentials() {
+        val now = System.currentTimeMillis()
+        val sessionsToRefresh = mutableListOf<String>()
+
+        // Find credentials that need refresh
+        cache.forEach { (sessionId, cached) ->
+            if (cached.needsRefresh() && !cached.isExpired()) {
+                sessionsToRefresh.add(sessionId)
+            }
+        }
+
+        // Refresh each credential
+        sessionsToRefresh.forEach { sessionId ->
+            mutex.withLock {
+                val cached = cache[sessionId]
+                if (cached != null && cached.needsRefresh()) {
+                    try {
+                        // Force refresh by removing from cache
+                        cache.remove(sessionId)
+
+                        // Get new credential (will be cached)
+                        getCredentials(sessionId)
+                    } catch (e: Exception) {
+                        // Log error but keep using old credential until it expires
+                        // Restore old credential if refresh failed
+                        cache[sessionId] = cached
+                    }
+                }
+            }
+        }
+
+        // Remove expired credentials
+        cache.entries.removeIf { (_, cached) ->
+            cached.isExpired()
+        }
+    }
+
+    /**
+     * Get time until credential expires (in milliseconds)
+     * Returns 0 if credential not found or expired
+     */
+    fun getTimeToExpiry(sessionId: String): Long {
+        val cached = cache[sessionId] ?: return 0
+        val now = System.currentTimeMillis()
+        return (cached.expiresAt - now).coerceAtLeast(0)
+    }
+
+    /**
+     * Check if credential for session is cached and valid
+     */
+    fun isCached(sessionId: String): Boolean {
+        val cached = cache[sessionId] ?: return false
+        return !cached.isExpired()
     }
 }

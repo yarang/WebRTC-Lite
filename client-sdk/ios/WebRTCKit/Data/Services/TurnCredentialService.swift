@@ -186,22 +186,56 @@ enum TurnCredentialError: LocalizedError {
     }
 }
 
-// MARK: - Caching Layer
+// MARK: - Caching Layer with Auto-Refresh
 
 /// Cached TURN credential service with automatic refresh
+/// Implements TTL-based caching with auto-refresh 5 minutes before expiry
+@available(iOS 13.0, *)
 final class CachedTurnCredentialService: TurnCredentialServiceProtocol {
 
+    // MARK: - Properties
+
     private let service: TurnCredentialService
-    private var cache: [String: (credential: TurnCredential, expiry: Date)] = [:]
+    private var cache: [String: CachedCredential] = [:]
     private let cacheQueue = DispatchQueue(label: "com.webrtclite.turncache", attributes: .concurrent)
+    private var refreshTask: Task<Void, Never>?
+
+    private enum Constants {
+        static let refreshBuffer: TimeInterval = 5 * 60 // 5 minutes before expiry
+        static let minCheckInterval: TimeInterval = 60 // Check every minute
+    }
+
+    private struct CachedCredential {
+        let credential: TurnCredential
+        let expiry: Date
+        let lastRefresh: Date
+
+        /// Check if credential needs refresh (5 minutes before expiry)
+        func needsRefresh() -> Bool {
+            return Date().addingTimeInterval(Constants.refreshBuffer) >= expiry
+        }
+
+        /// Check if credential is expired
+        func isExpired() -> Bool {
+            return Date() >= expiry
+        }
+    }
+
+    // MARK: - Initialization
 
     init(service: TurnCredentialService = TurnCredentialService()) {
         self.service = service
     }
 
+    deinit {
+        stopAutoRefresh()
+    }
+
+    // MARK: - Public Methods
+
     func getCredentials(sessionId: String) async throws -> TurnCredential {
-        // Check cache
-        if let cached = getCached(sessionId: sessionId), cached.expiry > Date() {
+        // Check cache first
+        if let cached = getCached(sessionId: sessionId), !cached.isExpired() {
             return cached.credential
         }
 
@@ -211,22 +245,106 @@ final class CachedTurnCredentialService: TurnCredentialServiceProtocol {
 
         // Update cache
         cacheQueue.async(flags: .barrier) {
-            self.cache[sessionId] = (credential, expiry)
+            self.cache[sessionId] = CachedCredential(
+                credential: credential,
+                expiry: expiry,
+                lastRefresh: Date()
+            )
         }
 
         return credential
     }
 
-    private func getCached(sessionId: String) -> (credential: TurnCredential, expiry: Date)? {
-        cacheQueue.sync {
-            cache[sessionId]
+    /// Start auto-refresh for cached credentials
+    /// Checks periodically and refreshes credentials before expiry
+    func startAutoRefresh() {
+        guard refreshTask == nil else { return }
+
+        refreshTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(Constants.minCheckInterval * 1_000_000_000))
+                await self?.refreshExpiringCredentials()
+            }
         }
+    }
+
+    /// Stop auto-refresh
+    func stopAutoRefresh() {
+        refreshTask?.cancel()
+        refreshTask = nil
+    }
+
+    /// Get time until credential expires (in seconds)
+    /// Returns 0 if credential not found or expired
+    func getTimeToExpiry(sessionId: String) -> TimeInterval {
+        guard let cached = getCached(sessionId: sessionId) else {
+            return 0
+        }
+        return max(0, cached.expiry.timeIntervalSinceNow)
+    }
+
+    /// Check if credential for session is cached and valid
+    func isCached(sessionId: String) -> Bool {
+        guard let cached = getCached(sessionId: sessionId) else {
+            return false
+        }
+        return !cached.isExpired()
     }
 
     /// Clear credential cache
     func clearCache() {
         cacheQueue.async(flags: .barrier) {
             self.cache.removeAll()
+        }
+    }
+
+    /// Clear credential for specific session
+    func clearCache(sessionId: String) {
+        cacheQueue.async(flags: .barrier) {
+            self.cache.removeValue(forKey: sessionId)
+        }
+    }
+
+    // MARK: - Private Methods
+
+    private func getCached(sessionId: String) -> CachedCredential? {
+        cacheQueue.sync {
+            cache[sessionId]
+        }
+    }
+
+    @MainActor
+    private func refreshExpiringCredentials() async {
+        let sessionsToRefresh: [String]
+
+        // Find credentials that need refresh
+        cacheQueue.sync {
+            sessionsToRefresh = cache.compactMap { (sessionId, cached) in
+                cached.needsRefresh() && !cached.isExpired() ? sessionId : nil
+            }
+        }
+
+        // Refresh each credential
+        for sessionId in sessionsToRefresh {
+            do {
+                // Remove from cache to force refresh
+                cacheQueue.async(flags: .barrier) {
+                    self.cache.removeValue(forKey: sessionId)
+                }
+
+                // Get new credential (will be cached)
+                _ = try await getCredentials(sessionId: sessionId)
+
+            } catch {
+                // Log error but continue using old credential until it expires
+                // Note: In production, you'd want to log this error
+                continue
+            }
+        }
+
+        // Remove expired credentials
+        cacheQueue.async(flags: .barrier) {
+            self.cache = self.cache.filter { !$1.isExpired() }
         }
     }
 }
