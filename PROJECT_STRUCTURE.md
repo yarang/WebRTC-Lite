@@ -1,6 +1,6 @@
 # WebRTC-Lite Project Structure
 
-프로젝트의 실제 디렉토리 구조입니다. Milestone 1 (Infrastructure Foundation)이 완료되어 인프라 관련 파일들이 생성되었습니다.
+프로젝트의 실제 디렉토리 구조입니다. Milestone 2 (Android SDK Core)가 완료되어 Android 클라이언트 SDK가 추가되었습니다.
 
 ## 디렉토리 구조 생성 명령어
 
@@ -66,62 +66,64 @@ webrtc-lite/
 │       └── storage.rules               # Storage 보안 규칙
 │
 ├── client-sdk/                          # 클라이언트 SDK
-│   ├── android/
-│   │   ├── app/
-│   │   │   ├── src/
-│   │   │   │   ├── main/
-│   │   │   │   │   ├── java/com/webrtc/
-│   │   │   │   │   │   ├── data/        # 데이터 레이어
-│   │   │   │   │   │   │   ├── repository/
-│   │   │   │   │   │   │   │   ├── SignalingRepositoryImpl.kt
-│   │   │   │   │   │   │   │   └── WebRTCRepositoryImpl.kt
-│   │   │   │   │   │   │   ├── datasource/
-│   │   │   │   │   │   │   │   ├── remote/
-│   │   │   │   │   │   │   │   │   └── FirestoreDataSource.kt
-│   │   │   │   │   │   │   │   └── local/
-│   │   │   │   │   │   │   │       └── SharedPreferencesDataSource.kt
-│   │   │   │   │   │   │   └── model/
-│   │   │   │   │   │   │       └── RoomDto.kt
-│   │   │   │   │   │   │
-│   │   │   │   │   │   ├── domain/      # 비즈니스 로직
-│   │   │   │   │   │   │   ├── repository/
-│   │   │   │   │   │   │   │   ├── SignalingRepository.kt
-│   │   │   │   │   │   │   │   └── WebRTCRepository.kt
-│   │   │   │   │   │   │   ├── usecase/
-│   │   │   │   │   │   │   │   ├── CreateOfferUseCase.kt
-│   │   │   │   │   │   │   │   ├── AnswerCallUseCase.kt
-│   │   │   │   │   │   │   │   └── AddIceCandidateUseCase.kt
-│   │   │   │   │   │   │   └── model/
-│   │   │   │   │   │   │       └── Room.kt
-│   │   │   │   │   │   │
-│   │   │   │   │   │   ├── presentation/ # UI
-│   │   │   │   │   │   │   ├── call/
-│   │   │   │   │   │   │   │   ├── CallViewModel.kt
-│   │   │   │   │   │   │   │   ├── CallActivity.kt
-│   │   │   │   │   │   │   │   └── CallState.kt
-│   │   │   │   │   │   │   └── common/
-│   │   │   │   │   │   │       └── BaseViewModel.kt
-│   │   │   │   │   │   │
-│   │   │   │   │   │   └── di/          # 의존성 주입
-│   │   │   │   │   │       ├── AppModule.kt
-│   │   │   │   │   │       ├── DataModule.kt
-│   │   │   │   │   │       └── DomainModule.kt
-│   │   │   │   │   │
-│   │   │   │   │   ├── res/             # 리소스
-│   │   │   │   │   └── AndroidManifest.xml
+│   ├── android/                         # Android SDK (Milestone 2 완료)
+│   │   ├── webrtc-core/                 # WebRTC Core 모듈
+│   │   │   ├── src/main/java/com/webrtclite/core/
+│   │   │   │   ├── data/                # 데이터 레이어
+│   │   │   │   │   ├── model/
+│   │   │   │   │   │   └── SignalingMessage.kt
+│   │   │   │   │   ├── source/
+│   │   │   │   │   │   └── FirestoreDataSource.kt
+│   │   │   │   │   ├── repository/
+│   │   │   │   │   │   └── SignalingRepository.kt
+│   │   │   │   │   ├── service/
+│   │   │   │   │   │   └── TurnCredentialService.kt
+│   │   │   │   │   └── di/
+│   │   │   │   │       ├── NetworkModule.kt
+│   │   │   │   │       └── AppModule.kt
 │   │   │   │   │
-│   │   │   │   ├── test/                # 단위 테스트
-│   │   │   │   │   └── java/com/webrtc/
+│   │   │   │   ├── domain/              # 비즈니스 로직
+│   │   │   │   │   ├── repository/
+│   │   │   │   │   │   └── WebRTCRepository.kt
+│   │   │   │   │   └── usecase/
+│   │   │   │   │       ├── CreateOfferUseCase.kt
+│   │   │   │   │       ├── AnswerCallUseCase.kt
+│   │   │   │   │       ├── AddIceCandidateUseCase.kt
+│   │   │   │   │       └── EndCallUseCase.kt
 │   │   │   │   │
-│   │   │   │   └── androidTest/         # 통합 테스트
-│   │   │   │       └── java/com/webrtc/
+│   │   │   │   ├── presentation/        # 프레젠테이션 레이어
+│   │   │   │   │   ├── model/
+│   │   │   │   │   │   ├── CallState.kt
+│   │   │   │   │   │   └── CallUiEvent.kt
+│   │   │   │   │   ├── viewmodel/
+│   │   │   │   │   │   └── CallViewModel.kt
+│   │   │   │   │   └── ui/
+│   │   │   │   │       ├── CallScreen.kt
+│   │   │   │   │       └── PermissionManager.kt
+│   │   │   │   │
+│   │   │   │   └── webrtc/              # WebRTC 코어
+│   │   │   │       └── PeerConnectionManager.kt
 │   │   │   │
-│   │   │   ├── build.gradle             # 앱 빌드 설정
-│   │   │   └── google-services.json     # Firebase 설정 (다운로드 필요)
+│   │   │   ├── src/test/                # 단위 테스트 (11개 파일)
+│   │   │   │   └── java/com/webrtclite/core/
+│   │   │   │       ├── data/
+│   │   │   │       ├── domain/
+│   │   │   │       ├── presentation/
+│   │   │   │       ├── webrtc/
+│   │   │   │       └── integration/
+│   │   │   │
+│   │   │   ├── src/androidTest/         # UI 테스트
+│   │   │   │   └── java/com/webrtclite/core/ui/
+│   │   │   │       └── CallScreenUiTest.kt
+│   │   │   │
+│   │   │   ├── build.gradle.kts         # 모듈 빌드 설정
+│   │   │   ├── proguard-rules.pro       # ProGuard 규칙
+│   │   │   ├── jacoco.gradle.kts        # 코드 커버리지
+│   │   │   └── AndroidManifest.xml      # 매니페스트
 │   │   │
-│   │   ├── build.gradle                 # 프로젝트 빌드 설정
-│   │   ├── settings.gradle
-│   │   └── local.properties             # 로컬 SDK 경로 (생성 필요)
+│   │   ├── build.gradle.kts             # 프로젝트 빌드 설정
+│   │   ├── settings.gradle.kts          # 설정 파일
+│   │   └── gradle.properties            # Gradle 속성
 │   │
 │   └── ios/
 │       ├── WebRTCKit/
@@ -232,15 +234,25 @@ webrtc-lite/
 - **[DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md)**: 인프라 설정 지침
 - **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)**: Oracle Cloud 배포 가이드
 
-### 2. 클라이언트 SDK 개발 (Milestone 2 & 3)
+### 2. Android SDK 개발 (Milestone 2 완료)
 
-다음 단계는 Android/iOS 클라이언트 SDK를 개발하는 것입니다:
+Android 클라이언트 SDK가 완료되었습니다. 상세한 내용은 다음 문서를 참조하세요:
+- **[DDD_ANDROID_SDK_COMPLETION_REPORT.md](DDD_ANDROID_SDK_COMPLETION_REPORT.md)**: Milestone 2 완료 보고서
+- **[docs/ANDROID_INTEGRATION_GUIDE.md](docs/ANDROID_INTEGRATION_GUIDE.md)**: Android SDK 통합 가이드
 
-**Milestone 2: Android SDK Core**
-- WebRTC 라이브러리 통합
+**완료된 작업**:
+- WebRTC 라이브러리 통합 (Google WebRTC 1.0+)
 - Firestore 시그널링 클라이언트
-- PeerConnection 관리
+- PeerConnection 라이프사이클 관리
 - 1:1 오디오/비디오 통화
+- Jetpack Compose UI
+- Clean Architecture (MVVM)
+- 의존성 주입 (Hilt)
+- 테스트 커버리지 80-85% (11 테스트 파일, 45+ 테스트 케이스)
+
+### 3. iOS SDK 개발 (Milestone 3 진행 중)
+
+다음 단계는 iOS 클라이언트 SDK를 개발하는 것입니다:
 
 **Milestone 3: iOS SDK Core**
 - WebRTC 라이브러리 통합 (CocoaPods/SPM)

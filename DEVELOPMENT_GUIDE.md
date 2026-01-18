@@ -124,13 +124,14 @@ firebase emulators:start --only firestore --import=./emulator-data
 
 ---
 
-### Android 개발 환경
+### Android 개발 환경 (Milestone 2 완료)
 
 #### 필수 소프트웨어
-- **Android Studio**: Electric Eel (2022.1.1) 이상
+- **Android Studio**: Hedgehog (2023.1.1) 이상
 - **JDK**: 17 이상
-- **Gradle**: 8.0+ (프로젝트에 포함)
-- **Android SDK**: API 21 (최소), API 34 (타겟)
+- **Gradle**: 8.2+ (Kotlin DSL)
+- **Android SDK**: API 24 (최소), API 34 (타겟)
+- **Kotlin**: 1.9.0+
 
 #### 환경 설정 단계
 ```bash
@@ -139,24 +140,85 @@ git clone https://github.com/your-repo/webrtc-hybrid-server.git
 cd webrtc-hybrid-server/client-sdk/android
 
 # 2. 로컬 설정 파일 생성
-cp local.properties.example local.properties
+echo "sdk.dir=$ANDROID_HOME" > local.properties
 
-# 3. local.properties 편집
-# sdk.dir=/Users/yourname/Library/Android/sdk
-
-# 4. Firebase 설정 파일 추가
+# 3. Firebase 설정 파일 추가
 # Firebase Console에서 google-services.json 다운로드
-cp ~/Downloads/google-services.json app/
+# 프로젝트: webrtc-core 모듈
+cp ~/Downloads/google-services.json webrtc-core/src/
 
-# 5. WebRTC 설정 업데이트
-# app/src/main/java/com/webrtc/WebRTCConfig.kt 편집
-# TURN_SERVER_URL = "turn:<YOUR_ORACLE_VM_IP>:3478"
+# 4. WebRTC 설정 업데이트
+# webrtc-core/src/main/java/com/webrtclite/core/webrtc/PeerConnectionManager.kt
+# TURN_SERVER_URL을 Oracle Cloud VM IP로 변경
 
-# 6. Gradle Sync
+# 5. Gradle Sync
 ./gradlew build
 
-# 7. 디바이스/에뮬레이터에 설치
-./gradlew installDebug
+# 6. 디바이스/에뮬레이터에 설치
+./gradlew :webrtc-core:installDebug
+
+# 7. 테스트 실행
+./gradlew :webrtc-core:testDebugUnitTest
+```
+
+#### 프로젝트 구조
+Android 프로젝트는 **Clean Architecture**로 구성되었습니다:
+
+```
+client-sdk/android/
+├── webrtc-core/                    # 메인 모듈
+│   ├── src/main/java/com/webrtclite/core/
+│   │   ├── data/                   # 데이터 레이어
+│   │   │   ├── model/              # DTO, 엔티티
+│   │   │   ├── source/             # 데이터 소스 (Firestore)
+│   │   │   ├── repository/         # Repository 구현
+│   │   │   ├── service/            # TURN 자격 증명 서비스
+│   │   │   └── di/                 # 의존성 주입 (Hilt)
+│   │   ├── domain/                 # 도메인 레이어
+│   │   │   ├── repository/         # Repository 인터페이스
+│   │   │   └── usecase/            # 유즈 케이스
+│   │   ├── presentation/           # 프레젠테이션 레이어
+│   │   │   ├── model/              # UI 상태, 이벤트
+│   │   │   ├── viewmodel/          # ViewModel
+│   │   │   └── ui/                 # Jetpack Compose UI
+│   │   └── webrtc/                 # WebRTC 코어
+│   │       └── PeerConnectionManager.kt
+│   └── src/test/                   # 단위 테스트 (11개 파일)
+│
+├── build.gradle.kts                # 프로젝트 빌드 설정
+├── settings.gradle.kts             # 설정 파일
+└── gradle.properties               # Gradle 속성
+```
+
+#### 의존성 관리
+```kotlin
+// webrtc-core/build.gradle.kts
+dependencies {
+    // WebRTC
+    implementation("org.webrtc:google-webrtc:1.0.+")
+
+    // Firebase BOM
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-common-ktx")
+
+    // Hilt (DI)
+    implementation("com.google.dagger:hilt-android:2.48")
+    kapt("com.google.dagger:hilt-compiler:2.48")
+
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+    // Jetpack Compose
+    implementation(platform("androidx.compose:compose-bom:2023.10.01"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.material3:material3")
+
+    // Testing
+    testImplementation("io.mockk:mockk:1.13.8")
+    testImplementation("com.google.truth:truth:1.1.5")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+}
 ```
 
 #### 권장 플러그인

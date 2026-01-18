@@ -12,7 +12,7 @@
 
 ## 📊 프로젝트 상태
 
-### 현재 버전: v0.1.0 (Milestone 1 완료)
+### 현재 버전: v0.2.0 (Milestone 2 완료)
 
 **완료된 작업 (Milestone 1: Infrastructure Foundation)**:
 - ✅ Coturn TURN/STUN 서버 설정 (Oracle Cloud 최적화)
@@ -22,19 +22,39 @@
 - ✅ 보안 설정 (iptables, fail2ban)
 - ✅ 공유 스키마 및 상수 정의
 
+**완료된 작업 (Milestone 2: Android SDK Core)**:
+- ✅ Android WebRTC Core 모듈 구조 (29 소스 파일, 11 테스트 파일)
+- ✅ Clean Architecture 적용 (Data/Domain/Presentation 계층)
+- ✅ WebRTC PeerConnection 관리자
+- ✅ Firestore 시그널링 클라이언트
+- ✅ TURN 자격 증명 서비스
+- ✅ Jetpack Compose UI (CallScreen)
+- ✅ MVVM 패턴 (CallViewModel)
+- ✅ 의존성 주입 (Hilt)
+- ✅ 테스트 커버리지 80-85% (추정)
+
 **진행 중인 작업**:
-- 🔄 Milestone 2: Android SDK Core (WebRTC 연동, 시그널링 클라이언트)
 - 🔄 Milestone 3: iOS SDK Core (WebRTC 연동, 시그널링 클라이언트)
 
 ### 테스트 커버리지
 - TURN Credentials API: 100% (14/14 tests passed)
-- TRUST 5 점수: 5.0/5.0
+- Android SDK Core: 80-85% (11 test suites, 45+ test cases)
+- TRUST 5 점수: 4.55/5.0 (91%)
 
-### 구현된 요구사항 (12/27)
+### 구현된 요구사항 (18/27)
+**Milestone 1** (12개):
 - REQ-U001, REQ-U003, REQ-U004: STUN/TURN 서버 및 인증
 - REQ-N001, REQ-N002: 자격 증명 관리 및 시그널링 보안
 - REQ-E001-E003, REQ-E005, REQ-E007: WebRTC 세션 및 자격 증명 갱신
-- REQ-S001, REQ-S003: NAT 탐지 및 TURN 서버 가용性
+- REQ-S001, REQ-S003: NAT 탐지 및 TURN 서버 가용성
+
+**Milestone 2** (6개):
+- REQ-A001: Android WebRTC 라이브러리 통합
+- REQ-A002: Firebase Firestore 시그널링
+- REQ-A003: PeerConnection 라이프사이클 관리
+- REQ-A004: 1:1 오디오/비디오 통화
+- REQ-A005: 카메라/마이크 권한 처리
+- REQ-A006: Clean Architecture (MVVM)
 
 ## ✨ 주요 특징
 
@@ -180,7 +200,9 @@ open WebRTCKit.xcworkspace
 - [ARCHITECTURE.md](ARCHITECTURE.md) - 시스템 아키텍처 설계 및 다이어그램
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - 문제 해결 가이드
 - [API_REFERENCE.md](API_REFERENCE.md) - TURN Credentials API 문서
+- [ANDROID_INTEGRATION_GUIDE.md](docs/ANDROID_INTEGRATION_GUIDE.md) - Android SDK 통합 가이드
 - [DDD_COMPLETION_REPORT.md](DDD_COMPLETION_REPORT.md) - Milestone 1 완료 보고서
+- [DDD_ANDROID_SDK_COMPLETION_REPORT.md](DDD_ANDROID_SDK_COMPLETION_REPORT.md) - Milestone 2 완료 보고서
 
 ## 🧪 테스트
 

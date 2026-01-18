@@ -430,10 +430,239 @@ graph LR
 
 ### 클라이언트 계층
 
-| 플랫폼 | 언어 | WebRTC 라이브러리 |
-|--------|------|------------------|
-| Android | Kotlin | Google WebRTC (1.0+) |
-| iOS | Swift | Google WebRTC (1.0+) |
+| 플랫폼 | 언어 | WebRTC 라이브러리 | 상태 |
+|--------|------|------------------|------|
+| Android | Kotlin | Google WebRTC (1.0+) | ✅ 완료 |
+| iOS | Swift | Google WebRTC (1.0+) | 🔄 진행 중 |
+
+---
+
+## Android Client Architecture (Milestone 2)
+
+### Clean Architecture 계층 구조
+
+```mermaid
+graph TB
+    subgraph "Presentation Layer"
+        A[CallScreen<br/>Jetpack Compose]
+        B[CallViewModel<br/>State Management]
+        C[CallState & CallUiEvent<br/>UI Models]
+    end
+
+    subgraph "Domain Layer"
+        D[Use Cases<br/>Business Logic]
+        E[WebRTCRepository<br/>Interface]
+        F[SignalingRepository<br/>Interface]
+    end
+
+    subgraph "Data Layer"
+        G[SignalingRepositoryImpl<br/>Firestore Integration]
+        H[FirestoreDataSource<br/>Data Source]
+        I[TurnCredentialService<br/>TURN Credentials]
+        J[NetworkModule<br/>DI Configuration]
+    end
+
+    subgraph "WebRTC Core"
+        K[PeerConnectionManager<br/>WebRTC Lifecycle]
+        L[Google WebRTC Library<br/>Native Implementation]
+    end
+
+    A --> B
+    B --> C
+    B --> D
+    D --> E
+    D --> F
+    G --> E
+    G --> H
+    I --> H
+    G --> K
+    K --> L
+    J --> G
+    J --> I
+```
+
+### Android 컴포넌트 상세
+
+#### Presentation Layer
+```mermaid
+classDiagram
+    class CallScreen {
+        +Composable() Content
+        +onCallClicked()
+        +onHangupClicked()
+        +onPermissionResult()
+    }
+
+    class CallViewModel {
+        -callState: StateFlow~CallState~
+        -createOfferUseCase: CreateOfferUseCase
+        -answerCallUseCase: AnswerCallUseCase
+        +onEvent(CallUiEvent)
+        +callState: StateFlow~CallState~
+    }
+
+    class CallState {
+        +isConnected: Boolean
+        +isCalling: Boolean
+        +localSessionDescription: String?
+        +remoteSessionDescription: String?
+        +errorMessage: String?
+    }
+
+    class CallUiEvent {
+        <<sealed class>>
+        StartCall(roomId: String)
+        AnswerCall()
+        EndCall()
+    }
+
+    CallViewModel --> CallState
+    CallViewModel --> CallUiEvent
+    CallScreen --> CallViewModel
+```
+
+#### Domain Layer
+```mermaid
+classDiagram
+    class CreateOfferUseCase {
+        -repository: WebRTCRepository
+        +invoke(roomId: String): Result~SessionDescription~
+    }
+
+    class AnswerCallUseCase {
+        -repository: WebRTCRepository
+        -signalingRepository: SignalingRepository
+        +invoke(offer: SessionDescription): Result~Unit~
+    }
+
+    class AddIceCandidateUseCase {
+        -signalingRepository: SignalingRepository
+        +invoke(candidate: IceCandidate): Result~Unit~
+    }
+
+    class EndCallUseCase {
+        -repository: WebRTCRepository
+        +invoke(): Result~Unit~
+    }
+
+    class WebRTCRepository {
+        <<interface>>
+        +createPeerConnection(): PeerConnection
+        +createOffer(): Result~SessionDescription~
+        +createAnswer(offer): Result~SessionDescription~
+        +addIceCandidate(candidate): Result~Unit~
+        +close(): Result~Unit~
+    }
+```
+
+#### Data Layer
+```mermaid
+classDiagram
+    class SignalingRepositoryImpl {
+        -firestoreDataSource: FirestoreDataSource
+        -turnCredentialService: TurnCredentialService
+        +sendOffer(roomId, offer): Result~Unit~
+        +sendAnswer(roomId, answer): Result~Unit~
+        +sendIceCandidate(roomId, candidate): Result~Unit~
+        +observeOffer(roomId): Flow~SessionDescription~
+        +observeAnswer(roomId): Flow~SessionDescription~
+        +observeIceCandidates(roomId): Flow~IceCandidate~
+    }
+
+    class FirestoreDataSource {
+        -firestore: FirebaseFirestore
+        -collectionReference: CollectionReference
+        +getDocument(roomId): Flow~DocumentSnapshot~
+        +setOffer(roomId, sdp): Result~Unit~
+        +setAnswer(roomId, sdp): Result~Unit~
+        +addIceCandidate(roomId, candidate): Result~Unit~
+    }
+
+    class TurnCredentialService {
+        -apiUrl: String
+        -cache: LruCache
+        +getCredentials(username): Result~TurnCredentials~
+        +refreshCredentials(): Result~Unit~
+    }
+```
+
+### WebRTC PeerConnection 관리
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle: 초기화
+    Idle --> CreatingOffer: createOffer()
+    CreatingOffer --> OfferCreated: SDP 생성 완료
+    OfferCreated --> WaitingForAnswer: Offer 전송 완료
+    WaitingForAnswer --> CreatingAnswer: Answer 수신
+    CreatingAnswer --> AnswerCreated: SDP 생성 완료
+    AnswerCreated --> GatheringCandidates: ICE Gathering 시작
+    GatheringCandidates --> Connecting: ICE 후보 교환 중
+    Connecting --> Connected: P2P/TURN 연결 성공
+    Connected --> Disconnected: 연결 종료
+    Disconnected --> [*]: 정리 완료
+
+    OfferCreated --> Disconnected: 타임아웃/거절
+    WaitingForAnswer --> Disconnected: 취소
+```
+
+### 의존성 주입 (Hilt)
+
+```mermaid
+graph LR
+    subgraph "Hilt Modules"
+        A[AppModule]
+        B[NetworkModule]
+    end
+
+    subgraph "Singleton Components"
+        C[FirebaseFirestore]
+        D[TurnCredentialService]
+        E[SignalingRepository]
+    end
+
+    subgraph "Scoped Components"
+        F[PeerConnectionManager]
+        G[CallViewModel]
+    end
+
+    A --> C
+    B --> D
+    C --> E
+    D --> E
+    E --> F
+    F --> G
+```
+
+### 비동기 처리 (Coroutines + Flow)
+
+```mermaid
+sequenceDiagram
+    participant UI as CallScreen
+    participant VM as CallViewModel
+    participant UC as UseCase
+    participant Repo as Repository
+    participant DS as DataSource
+    participant FS as Firestore
+
+    UI->>VM: onEvent(StartCall)
+    VM->>UC: invoke(roomId)
+    UC->>Repo: createPeerConnection()
+    Repo-->>UC: PeerConnection
+    UC->>Repo: createOffer()
+    Repo->>Repo: WebRTC.createOffer()
+    Repo-->>UC: SessionDescription
+    UC->>Repo: sendOffer(roomId, sdp)
+    Repo->>DS: setOffer(roomId, sdp)
+    DS->>FS: firestore.collection(roomId).set()
+    FS-->>DS: Success
+    DS-->>Repo: Result.Success
+    Repo-->>UC: Result.Success
+    UC-->>VM: Result.Success
+    VM->>VM: updateState(CallState)
+    VM-->>UI: callState.collect()
+    UI->>UI: Update UI (Calling 상태)
+```
 
 ### 보안 계층
 

@@ -1,0 +1,46 @@
+# SwiftFormat Configuration for WebRTCKit
+# TRUST 5 Compliance: Readable
+
+# Indentation
+indent 4
+
+# Line wrapping
+linearoundargsdoublequotes false
+linebreaksaroundmultilinearguments none
+
+# Spacing
+spacesaroundoperators true
+spacearoundoperators true
+spaceinsideparens false
+spaceinsidebraces false
+spaceinsidebrackets false
+spaceaftercolon true
+
+# Organize imports
+organizesimports true
+importgrouping testablebottom
+
+# MARK comments
+marktypes true
+markextensions true
+
+# Other rules
+decimalgrouping none
+emptybraces spacing
+explicitself none
+extensionacl on-declarations
+ifdef indent
+indentcase true
+linebreakatend true
+semicolons never
+sortuses uppercasefirst
+trailingcomms inline
+trimwhitespace true
+wraparguments preserve
+wrapcollections preserve
+wrapparameters preserve
+
+# Rules to disable
+disable:
+  - trailingSpace
+  - redundantParens
