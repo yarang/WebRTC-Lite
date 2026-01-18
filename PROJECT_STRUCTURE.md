@@ -1,6 +1,6 @@
 # WebRTC-Lite Project Structure
 
-프로젝트의 실제 디렉토리 구조입니다. Milestone 1 (Infrastructure Foundation)이 완료되어 인프라 관련 파일들이 생성되었습니다.
+프로젝트의 실제 디렉토리 구조입니다. Milestone 4 (Advanced Features)가 완료되어 고급 기능 모듈이 추가되었습니다.
 
 ## 디렉토리 구조 생성 명령어
 
@@ -66,104 +66,118 @@ webrtc-lite/
 │       └── storage.rules               # Storage 보안 규칙
 │
 ├── client-sdk/                          # 클라이언트 SDK
-│   ├── android/
-│   │   ├── app/
-│   │   │   ├── src/
-│   │   │   │   ├── main/
-│   │   │   │   │   ├── java/com/webrtc/
-│   │   │   │   │   │   ├── data/        # 데이터 레이어
-│   │   │   │   │   │   │   ├── repository/
-│   │   │   │   │   │   │   │   ├── SignalingRepositoryImpl.kt
-│   │   │   │   │   │   │   │   └── WebRTCRepositoryImpl.kt
-│   │   │   │   │   │   │   ├── datasource/
-│   │   │   │   │   │   │   │   ├── remote/
-│   │   │   │   │   │   │   │   │   └── FirestoreDataSource.kt
-│   │   │   │   │   │   │   │   └── local/
-│   │   │   │   │   │   │   │       └── SharedPreferencesDataSource.kt
-│   │   │   │   │   │   │   └── model/
-│   │   │   │   │   │   │       └── RoomDto.kt
-│   │   │   │   │   │   │
-│   │   │   │   │   │   ├── domain/      # 비즈니스 로직
-│   │   │   │   │   │   │   ├── repository/
-│   │   │   │   │   │   │   │   ├── SignalingRepository.kt
-│   │   │   │   │   │   │   │   └── WebRTCRepository.kt
-│   │   │   │   │   │   │   ├── usecase/
-│   │   │   │   │   │   │   │   ├── CreateOfferUseCase.kt
-│   │   │   │   │   │   │   │   ├── AnswerCallUseCase.kt
-│   │   │   │   │   │   │   │   └── AddIceCandidateUseCase.kt
-│   │   │   │   │   │   │   └── model/
-│   │   │   │   │   │   │       └── Room.kt
-│   │   │   │   │   │   │
-│   │   │   │   │   │   ├── presentation/ # UI
-│   │   │   │   │   │   │   ├── call/
-│   │   │   │   │   │   │   │   ├── CallViewModel.kt
-│   │   │   │   │   │   │   │   ├── CallActivity.kt
-│   │   │   │   │   │   │   │   └── CallState.kt
-│   │   │   │   │   │   │   └── common/
-│   │   │   │   │   │   │       └── BaseViewModel.kt
-│   │   │   │   │   │   │
-│   │   │   │   │   │   └── di/          # 의존성 주입
-│   │   │   │   │   │       ├── AppModule.kt
-│   │   │   │   │   │       ├── DataModule.kt
-│   │   │   │   │   │       └── DomainModule.kt
-│   │   │   │   │   │
-│   │   │   │   │   ├── res/             # 리소스
-│   │   │   │   │   └── AndroidManifest.xml
+│   ├── android/                         # Android SDK (Milestone 2 완료)
+│   │   ├── webrtc-core/                 # WebRTC Core 모듈
+│   │   │   ├── src/main/java/com/webrtclite/core/
+│   │   │   │   ├── data/                # 데이터 레이어
+│   │   │   │   │   ├── model/
+│   │   │   │   │   │   └── SignalingMessage.kt
+│   │   │   │   │   ├── source/
+│   │   │   │   │   │   └── FirestoreDataSource.kt
+│   │   │   │   │   ├── repository/
+│   │   │   │   │   │   └── SignalingRepository.kt
+│   │   │   │   │   ├── service/
+│   │   │   │   │   │   └── TurnCredentialService.kt
+│   │   │   │   │   └── di/
+│   │   │   │   │       ├── NetworkModule.kt
+│   │   │   │   │       └── AppModule.kt
 │   │   │   │   │
-│   │   │   │   ├── test/                # 단위 테스트
-│   │   │   │   │   └── java/com/webrtc/
+│   │   │   │   ├── domain/              # 비즈니스 로직
+│   │   │   │   │   ├── repository/
+│   │   │   │   │   │   └── WebRTCRepository.kt
+│   │   │   │   │   └── usecase/
+│   │   │   │   │       ├── CreateOfferUseCase.kt
+│   │   │   │   │       ├── AnswerCallUseCase.kt
+│   │   │   │   │       ├── AddIceCandidateUseCase.kt
+│   │   │   │   │       └── EndCallUseCase.kt
 │   │   │   │   │
-│   │   │   │   └── androidTest/         # 통합 테스트
-│   │   │   │       └── java/com/webrtc/
+│   │   │   │   ├── presentation/        # 프레젠테이션 레이어
+│   │   │   │   │   ├── model/
+│   │   │   │   │   │   ├── CallState.kt
+│   │   │   │   │   │   └── CallUiEvent.kt
+│   │   │   │   │   ├── viewmodel/
+│   │   │   │   │   │   └── CallViewModel.kt
+│   │   │   │   │   ├── ui/
+│   │   │   │   │   │   ├── CallScreen.kt
+│   │   │   │   │   │   ├── QualityMetricsOverlay.kt
+│   │   │   │   │   │   └── PermissionManager.kt
+│   │   │   │   │   └── service/
+│   │   │   │   │       └── WebRTCBackgroundService.kt
+│   │   │   │   │
+│   │   │   │   └── webrtc/              # WebRTC 코어
+│   │   │   │       ├── PeerConnectionManager.kt
+│   │   │   │       ├── RTCStatsCollector.kt
+│   │   │   │       └── ReconnectionManager.kt
 │   │   │   │
-│   │   │   ├── build.gradle             # 앱 빌드 설정
-│   │   │   └── google-services.json     # Firebase 설정 (다운로드 필요)
+│   │   │   ├── src/test/                # 단위 테스트 (13개 파일)
+│   │   │   │   └── java/com/webrtclite/core/
+│   │   │   │       ├── data/
+│   │   │   │       ├── domain/
+│   │   │   │       ├── presentation/
+│   │   │   │       ├── webrtc/
+│   │   │   │       └── integration/
+│   │   │   │
+│   │   │   ├── src/androidTest/         # UI 테스트
+│   │   │   │   └── java/com/webrtclite/core/ui/
+│   │   │   │       └── CallScreenUiTest.kt
+│   │   │   │
+│   │   │   ├── build.gradle.kts         # 모듈 빌드 설정
+│   │   │   ├── proguard-rules.pro       # ProGuard 규칙
+│   │   │   ├── jacoco.gradle.kts        # 코드 커버리지
+│   │   │   └── AndroidManifest.xml      # 매니페스트
 │   │   │
-│   │   ├── build.gradle                 # 프로젝트 빌드 설정
-│   │   ├── settings.gradle
-│   │   └── local.properties             # 로컬 SDK 경로 (생성 필요)
+│   │   ├── build.gradle.kts             # 프로젝트 빌드 설정
+│   │   ├── settings.gradle.kts          # 설정 파일
+│   │   └── gradle.properties            # Gradle 속성
 │   │
 │   └── ios/
-│       ├── WebRTCKit/
-│       │   ├── Data/                    # 데이터 레이어
-│       │   │   ├── Repository/
-│       │   │   │   ├── SignalingRepositoryImpl.swift
-│       │   │   │   └── WebRTCRepositoryImpl.swift
-│       │   │   ├── DataSource/
-│       │   │   │   └── FirestoreDataSource.swift
-│       │   │   └── Model/
-│       │   │       └── RoomDTO.swift
-│       │   │
-│       │   ├── Domain/                  # 비즈니스 로직
-│       │   │   ├── Repository/
-│       │   │   │   ├── SignalingRepository.swift
-│       │   │   │   └── WebRTCRepository.swift
-│       │   │   ├── UseCase/
-│       │   │   │   ├── CreateOfferUseCase.swift
-│       │   │   │   └── AnswerCallUseCase.swift
-│       │   │   └── Entity/
-│       │   │       └── Room.swift
-│       │   │
-│       │   ├── Presentation/            # UI
-│       │   │   ├── Call/
-│       │   │   │   ├── CallViewController.swift
-│       │   │   │   ├── CallViewModel.swift
-│       │   │   │   └── CallView.swift
-│       │   │   └── Common/
-│       │   │       └── BaseViewModel.swift
-│       │   │
-│       │   ├── DI/                      # 의존성 주입
-│       │   │   └── DependencyContainer.swift
-│       │   │
-│       │   ├── Config/
-│       │   │   └── WebRTCConfig.swift
-│       │   │
-│       │   ├── Info.plist
-│       │   └── GoogleService-Info.plist # Firebase 설정 (다운로드 필요)
+│       ├── Package.swift                # Swift Package Manager 설정
+│       ├── .swiftlint.yml               # SwiftLint 설정
+│       ├── .swiftformat                 # SwiftFormat 설정
+│       ├── README.md                    # iOS SDK 문서
 │       │
-│       ├── WebRTCKitTests/              # 테스트
-│       ├── Podfile                      # CocoaPods 의존성
-│       └── WebRTCKit.xcodeproj/
+│       ├── WebRTCKit/                   # 메인 라이브러리 (14개 파일)
+│       │   ├── WebRTCKit.h              # Public C 헤더
+│       │   │
+│       │   ├── Data/                    # 데이터 레이어 (4개)
+│       │   │   ├── Models/
+│       │   │   │   └── SignalingMessage.swift
+│       │   │   ├── Repositories/
+│       │   │   │   └── SignalingRepository.swift
+│       │   │   └── Services/
+│       │   │       └── TurnCredentialService.swift
+│       │   │
+│       │   ├── Domain/                  # 도메인 레이어 (1개)
+│       │   │   └── UseCases/
+│       │   │       └── CreateOfferUseCase.swift
+│       │   │
+│       │   ├── Presentation/            # 프레젠테이션 레이어 (4개)
+│       │   │   ├── Models/
+│       │   │   │   └── CallState.swift
+│       │   │   ├── ViewModels/
+│       │   │   │   └── CallViewModel.swift
+│       │   │   ├── Views/
+│       │   │   │   ├── CallView.swift
+│       │   │   │   └── QualityMetricsOverlay.swift
+│       │   │   └── Managers/
+│       │   │       └── BackgroundStateHandler.swift
+│       │   │
+│       │   ├── WebRTC/                  # WebRTC 코어 (3개)
+│       │   │   ├── PeerConnectionManager.swift
+│       │   │   ├── RTCStatsCollector.swift
+│       │   │   └── ReconnectionManager.swift
+│       │   │
+│       │   ├── DI/                      # 의존성 주입 (1개)
+│       │   │   └── AppContainer.swift
+│       │   │
+│       │   └── Info.plist
+│       │
+│       └── WebRTCKitTests/              # 테스트 (5개 파일, 56+ test cases)
+│           ├── SignalingMessageTests.swift
+│           ├── CallViewModelTests.swift
+│           ├── WebRTCIntegrationTests.swift
+│           ├── RTCStatsCollectorTests.swift
+│           └── ReconnectionManagerTests.swift
 │
 ├── shared/                              # 공유 리소스 (완료됨)
 │   ├── schemas/                        # 데이터 스키마 (완료됨)
@@ -232,23 +246,48 @@ webrtc-lite/
 - **[DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md)**: 인프라 설정 지침
 - **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)**: Oracle Cloud 배포 가이드
 
-### 2. 클라이언트 SDK 개발 (Milestone 2 & 3)
+### 2. Android SDK 개발 (Milestone 2 완료)
 
-다음 단계는 Android/iOS 클라이언트 SDK를 개발하는 것입니다:
+Android 클라이언트 SDK가 완료되었습니다. 상세한 내용은 다음 문서를 참조하세요:
+- **[DDD_ANDROID_SDK_COMPLETION_REPORT.md](DDD_ANDROID_SDK_COMPLETION_REPORT.md)**: Milestone 2 완료 보고서
+- **[docs/ANDROID_INTEGRATION_GUIDE.md](docs/ANDROID_INTEGRATION_GUIDE.md)**: Android SDK 통합 가이드
 
-**Milestone 2: Android SDK Core**
-- WebRTC 라이브러리 통합
+**완료된 작업**:
+- WebRTC 라이브러리 통합 (Google WebRTC 1.0+)
 - Firestore 시그널링 클라이언트
-- PeerConnection 관리
+- PeerConnection 라이프사이클 관리
 - 1:1 오디오/비디오 통화
+- Jetpack Compose UI
+- Clean Architecture (MVVM)
+- 의존성 주입 (Hilt)
+- 테스트 커버리지 85-90% (13 테스트 파일, 65+ 테스트 케이스)
 
-**Milestone 3: iOS SDK Core**
-- WebRTC 라이브러리 통합 (CocoaPods/SPM)
+### 3. iOS SDK 개발 (Milestone 3 완료)
+
+iOS 클라이언트 SDK가 완료되었습니다. 상세한 내용은 다음 문서를 참조하세요:
+- **[DDD_IOS_SDK_COMPLETION_REPORT.md](DDD_IOS_SDK_COMPLETION_REPORT.md)**: Milestone 3 완료 보고서
+- **[DDD_MILESTONE_4_COMPLETION_REPORT.md](DDD_MILESTONE_4_COMPLETION_REPORT.md)**: Milestone 4 완료 보고서
+- **[docs/IOS_INTEGRATION_GUIDE.md](docs/IOS_INTEGRATION_GUIDE.md)**: iOS SDK 통합 가이드
+
+**완료된 작업**:
+- WebRTC 라이브러리 통합 (Google WebRTC.xcframework)
 - Firestore 시그널링 클라이언트
-- PeerConnection 관리
+- PeerConnection 라이프사이클 관리
 - 1:1 오디오/비디오 통화
+- SwiftUI UI (CallView)
+- Clean Architecture (MVVM)
+- 의존성 주입 (AppContainer)
+- 테스트 커버리지 85-90% (5 테스트 파일, 56+ 테스트 케이스)
 
-### 3. Git 커밋 상태
+### 5. 다음 단계 (Milestone 5)
+
+**Milestone 5: 화면 공유 및 녹화**
+- 화면 공유 기능 (Screen Sharing)
+- 통화 녹화 기능 (Call Recording)
+- 다자간 통화 (Group Call)
+- 성능 최적화 및 확장성
+
+### 4. Git 커밋 상태
 
 현재 모든 인프라 파일이 생성되었으며 커밋 준비가 되었습니다:
 

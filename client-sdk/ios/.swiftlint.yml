@@ -1,0 +1,111 @@
+# SwiftLint Configuration for WebRTCKit
+# TRUST 5 Compliance: Readable
+
+disabled_rules:
+  - trailing_whitespace
+  - todo
+
+opt_in_rules:
+  - empty_count
+  - empty_string
+  - explicit_init
+  - fatal_error_message
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - overridden_super_call
+  - prohibited_interface_builder
+  - redundant_nil_coalescing
+  - strict_fileprivate
+  - unneeded_parentheses_in_closure_argument
+  - vertical_whitespace_closing_braces
+  - weak_delegate
+
+excluded:
+  - Carthage
+  - Pods
+  - WebRTCKitTests
+  - .build
+
+line_length:
+  warning: 120
+  error: 200
+  ignores_function_declarations: true
+  ignores_comments: true
+  ignores_urls: true
+
+function_body_length:
+  warning: 50
+  error: 100
+
+function_parameter_count:
+  warning: 6
+  error: 8
+
+type_body_length:
+  warning: 300
+  error: 500
+
+file_length:
+  warning: 500
+  error: 1000
+  ignore_comment_only_lines: true
+
+cyclomatic_complexity:
+  warning: 10
+  error: 20
+
+nesting:
+  type_level:
+    warning: 2
+  statement_level:
+    warning: 5
+
+identifier_name:
+  min_length:
+    warning: 2
+  max_length:
+    warning: 40
+    error: 50
+  excluded:
+    - id
+    - db
+    - x
+    - y
+    - z
+
+type_name:
+  min_length: 3
+  max_length:
+    warning: 40
+    error: 50
+
+large_tuple:
+  warning: 3
+  error: 4
+
+custom_rules:
+  # TRUST 5: Secured - No hardcoded credentials
+  no_hardcoded_credentials:
+    name: "No Hardcoded Credentials"
+    regex: '(password|secret|key)\s*[:=]\s*"[^"]+"'
+    match_kinds:
+      - string
+    message: "Hardcoded credentials detected. Use secure credential management."
+
+  # TRUST 5: Testable - Force unwrap should be avoided in production code
+  force_unwrap_safe:
+    name: "Force Unwrap Safety"
+    regex: '!\s*[a-z]'
+    match_kinds:
+      - identifier
+    message: "Force unwrap detected. Ensure safety with guard let or if let."
+
+  # MARK: comments for better code organization
+  missing_mark_comment:
+    name: "Missing MARK Comment"
+    regex: '^// (?!MARK:)'
+    match_kinds:
+      - comment
+    message: "Use // MARK: - for code organization."
+
+reporter: "xcode"

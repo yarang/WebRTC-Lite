@@ -4,6 +4,7 @@
 - [개발 환경 설정](#개발-환경-설정)
 - [프로젝트 구조](#프로젝트-구조)
 - [개발 워크플로우](#개발-워크플로우)
+- [고급 기능 개발](#고급-기능-개발)
 - [코딩 컨벤션](#코딩-컨벤션)
 - [테스트 전략](#테스트-전략)
 - [디버깅 가이드](#디버깅-가이드)
@@ -124,13 +125,14 @@ firebase emulators:start --only firestore --import=./emulator-data
 
 ---
 
-### Android 개발 환경
+### Android 개발 환경 (Milestone 2 완료)
 
 #### 필수 소프트웨어
-- **Android Studio**: Electric Eel (2022.1.1) 이상
+- **Android Studio**: Hedgehog (2023.1.1) 이상
 - **JDK**: 17 이상
-- **Gradle**: 8.0+ (프로젝트에 포함)
-- **Android SDK**: API 21 (최소), API 34 (타겟)
+- **Gradle**: 8.2+ (Kotlin DSL)
+- **Android SDK**: API 24 (최소), API 34 (타겟)
+- **Kotlin**: 1.9.0+
 
 #### 환경 설정 단계
 ```bash
@@ -139,24 +141,85 @@ git clone https://github.com/your-repo/webrtc-hybrid-server.git
 cd webrtc-hybrid-server/client-sdk/android
 
 # 2. 로컬 설정 파일 생성
-cp local.properties.example local.properties
+echo "sdk.dir=$ANDROID_HOME" > local.properties
 
-# 3. local.properties 편집
-# sdk.dir=/Users/yourname/Library/Android/sdk
-
-# 4. Firebase 설정 파일 추가
+# 3. Firebase 설정 파일 추가
 # Firebase Console에서 google-services.json 다운로드
-cp ~/Downloads/google-services.json app/
+# 프로젝트: webrtc-core 모듈
+cp ~/Downloads/google-services.json webrtc-core/src/
 
-# 5. WebRTC 설정 업데이트
-# app/src/main/java/com/webrtc/WebRTCConfig.kt 편집
-# TURN_SERVER_URL = "turn:<YOUR_ORACLE_VM_IP>:3478"
+# 4. WebRTC 설정 업데이트
+# webrtc-core/src/main/java/com/webrtclite/core/webrtc/PeerConnectionManager.kt
+# TURN_SERVER_URL을 Oracle Cloud VM IP로 변경
 
-# 6. Gradle Sync
+# 5. Gradle Sync
 ./gradlew build
 
-# 7. 디바이스/에뮬레이터에 설치
-./gradlew installDebug
+# 6. 디바이스/에뮬레이터에 설치
+./gradlew :webrtc-core:installDebug
+
+# 7. 테스트 실행
+./gradlew :webrtc-core:testDebugUnitTest
+```
+
+#### 프로젝트 구조
+Android 프로젝트는 **Clean Architecture**로 구성되었습니다:
+
+```
+client-sdk/android/
+├── webrtc-core/                    # 메인 모듈
+│   ├── src/main/java/com/webrtclite/core/
+│   │   ├── data/                   # 데이터 레이어
+│   │   │   ├── model/              # DTO, 엔티티
+│   │   │   ├── source/             # 데이터 소스 (Firestore)
+│   │   │   ├── repository/         # Repository 구현
+│   │   │   ├── service/            # TURN 자격 증명 서비스
+│   │   │   └── di/                 # 의존성 주입 (Hilt)
+│   │   ├── domain/                 # 도메인 레이어
+│   │   │   ├── repository/         # Repository 인터페이스
+│   │   │   └── usecase/            # 유즈 케이스
+│   │   ├── presentation/           # 프레젠테이션 레이어
+│   │   │   ├── model/              # UI 상태, 이벤트
+│   │   │   ├── viewmodel/          # ViewModel
+│   │   │   └── ui/                 # Jetpack Compose UI
+│   │   └── webrtc/                 # WebRTC 코어
+│   │       └── PeerConnectionManager.kt
+│   └── src/test/                   # 단위 테스트 (11개 파일)
+│
+├── build.gradle.kts                # 프로젝트 빌드 설정
+├── settings.gradle.kts             # 설정 파일
+└── gradle.properties               # Gradle 속성
+```
+
+#### 의존성 관리
+```kotlin
+// webrtc-core/build.gradle.kts
+dependencies {
+    // WebRTC
+    implementation("org.webrtc:google-webrtc:1.0.+")
+
+    // Firebase BOM
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-common-ktx")
+
+    // Hilt (DI)
+    implementation("com.google.dagger:hilt-android:2.48")
+    kapt("com.google.dagger:hilt-compiler:2.48")
+
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+    // Jetpack Compose
+    implementation(platform("androidx.compose:compose-bom:2023.10.01"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.material3:material3")
+
+    // Testing
+    testImplementation("io.mockk:mockk:1.13.8")
+    testImplementation("com.google.truth:truth:1.1.5")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+}
 ```
 
 #### 권장 플러그인
@@ -165,11 +228,12 @@ cp ~/Downloads/google-services.json app/
 - SonarLint (코드 품질)
 - GitToolBox (Git 통합)
 
-### iOS 개발 환경
+### iOS 개발 환경 (Milestone 3 완료)
 
 #### 필수 소프트웨어
 - **Xcode**: 15.0 이상
-- **CocoaPods**: 1.12+ 또는 Swift Package Manager
+- **Swift**: 5.9+
+- **Swift Package Manager**: (기본 내장)
 - **macOS**: Ventura (13.0) 이상
 
 #### 환경 설정 단계
@@ -177,28 +241,145 @@ cp ~/Downloads/google-services.json app/
 # 1. 프로젝트 디렉토리 이동
 cd client-sdk/ios
 
-# 2. CocoaPods 의존성 설치
-pod install
+# 2. Swift Package Manager로 의존성 해결
+# Package.swift에 정의된 의존성이 자동으로 로드됨
+# - Firebase iOS SDK
+# - WebRTC (수동으로 xcframework 추가 필요)
 
 # 3. Firebase 설정 파일 추가
 # Firebase Console에서 GoogleService-Info.plist 다운로드
 cp ~/Downloads/GoogleService-Info.plist WebRTCKit/
 
-# 4. WebRTC 설정 업데이트
-# WebRTCKit/Config/WebRTCConfig.swift 편집
-# static let turnServerURL = "turn://<YOUR_ORACLE_VM_IP>:3478"
+# 4. WebRTC.xcframework 추가 (수동)
+# WebRTC.xcframework를 프로젝트 루트에 복사
+# Xcode에서 프로젝트 설정 > Frameworks, Libraries, and Embedded Content
+# WebRTC.xcframework 추가
 
-# 5. Xcode 워크스페이스 열기
-open WebRTCKit.xcworkspace
+# 5. SwiftLint/SwiftFormat 설정
+# .swiftlint.yml 및 .swiftformat 파일이 이미 프로젝트에 포함됨
 
-# 6. 시뮬레이터 또는 디바이스에서 실행
-# Xcode에서 Product > Run (Cmd+R)
+# 6. 빌드 및 테스트
+swift build
+swift test
+
+# 7. Xcode에서 열기 (선택사항)
+open Package.swift
+```
+
+#### 프로젝트 구조
+iOS 프로젝트는 **Clean Architecture**로 구성되었습니다:
+
+```
+client-sdk/ios/
+├── Package.swift                      # Swift Package Manager 설정
+├── .swiftlint.yml                     # SwiftLint 설정
+├── .swiftformat                       # SwiftFormat 설정
+├── WebRTCKit/                         # 메인 라이브러리
+│   ├── WebRTCKit.h                    # Public C 헤더
+│   ├── Data/                          # 데이터 레이어
+│   │   ├── Models/
+│   │   │   └── SignalingMessage.swift
+│   │   ├── Repositories/
+│   │   │   └── SignalingRepository.swift
+│   │   └── Services/
+│   │       └── TurnCredentialService.swift
+│   ├── Domain/                        # 도메인 레이어
+│   │   └── UseCases/
+│   │       └── CreateOfferUseCase.swift
+│   ├── Presentation/                  # 프레젠테이션 레이어
+│   │   ├── Models/
+│   │   │   └── CallState.swift
+│   │   ├── ViewModels/
+│   │   │   └── CallViewModel.swift
+│   │   └── Views/
+│   │       └── CallView.swift
+│   ├── WebRTC/                        # WebRTC 코어
+│   │   └── PeerConnectionManager.swift
+│   ├── DI/                            # 의존성 주입
+│   │   └── AppContainer.swift
+│   └── Info.plist
+│
+└── WebRTCKitTests/                    # 테스트 (3개 파일)
+    ├── SignalingMessageTests.swift
+    ├── CallViewModelTests.swift
+    └── WebRTCIntegrationTests.swift
+```
+
+#### 의존성 관리
+```swift
+// Package.swift
+// swift-tools-version: 5.9
+import PackageDescription
+
+let package = Package(
+    name: "WebRTCKit",
+    platforms: [.iOS(.v13)],
+    products: [
+        .library(
+            name: "WebRTCKit",
+            targets: ["WebRTCKit"])
+    ],
+    dependencies: [
+        // Firebase (SPM)
+        .package(
+            url: "https://github.com/firebase/firebase-ios-sdk.git",
+            from: "11.0.0"
+        )
+    ],
+    targets: [
+        .target(
+            name: "WebRTCKit",
+            dependencies: [
+                .product(name: "FirebaseFirestore", package: "firebase-ios-sdk")
+            ]
+        ),
+        .testTarget(
+            name: "WebRTCKitTests",
+            dependencies: ["WebRTCKit"]
+        )
+    ]
+)
 ```
 
 #### 권장 설정
 - SwiftLint 활성화 (코드 스타일 자동 검사)
 - SwiftFormat 설정 (자동 포맷팅)
 - Xcode Behaviors 커스터마이징 (빌드 완료 알림 등)
+
+#### WebRTC Framework 설치
+```bash
+# WebRTC.xcframework는 별도로 다운로드 필요
+# https://webrtc.github.io/webrtc-org/native-code/ios/
+
+# 또는 CocoaPods 사용 (대안)
+# Podfile 생성 후:
+pod install
+```
+
+#### iOS 단위 테스트
+```bash
+# Swift Package Manager 테스트
+cd client-sdk/ios
+swift test
+
+# Xcode 테스트
+xcodebuild test -scheme WebRTCKit -destination 'platform=iOS Simulator,name=iPhone 15'
+
+# 코드 커버리지
+swift test --enable-code-coverage
+```
+
+#### iOS 통합 테스트
+```bash
+# Firebase 에뮬레이터 시작
+firebase emulators:start --only firestore
+
+# 에뮬레이터 사용 설정
+# WebRTCKit/Data/Repositories/SignalingRepository.swift에서
+# Firestore.firestore().useEmulator(withHost: "localhost", port: 8080)
+```
+
+### Firebase 개발 환경
 
 ### Firebase 개발 환경
 
@@ -440,6 +621,295 @@ git push origin feature/add-screen-sharing
 #### 8. Merge
 - Squash and Merge (권장)
 - 피처 브랜치 삭제
+
+---
+
+## 고급 기능 개발
+
+### 네트워크 모니터링 (Milestone 4)
+
+Milestone 4에서 구현된 고급 기능들을 사용하는 방법입니다.
+
+#### Android 네트워크 모니터링 설정
+
+**RTCStatsCollector 통합**:
+```kotlin
+// PeerConnectionManager에서 stats collector 사용
+class PeerConnectionManager(
+    private val context: Context
+) {
+    private val statsCollector = RTCStatsCollector(peerConnection)
+
+    fun startMonitoring() {
+        statsCollector.start()
+    }
+
+    fun getQualityMetrics(): QualityMetrics {
+        return statsCollector.getCurrentMetrics()
+    }
+}
+```
+
+**QualityMetricsOverlay 사용**:
+```kotlin
+// CallScreen.kt에서 품질 메트릭 표시
+@Composable
+fun CallScreen(viewModel: CallViewModel = hiltViewModel()) {
+    val qualityMetrics by viewModel.qualityMetrics.collectAsState()
+
+    Box {
+        VideoCallContent()
+        QualityMetricsOverlay(
+            metrics = qualityMetrics,
+            onDismiss = { viewModel.toggleQualityOverlay() }
+        )
+    }
+}
+```
+
+#### iOS 네트워크 모니터링 설정
+
+**RTCStatsCollector 통합**:
+```swift
+// PeerConnectionManager에서 stats collector 사용
+class PeerConnectionManager {
+    private let statsCollector: RTCStatsCollector
+
+    init(peerConnection: RTCPeerConnection) {
+        self.statsCollector = RTCStatsCollector(peerConnection: peerConnection)
+    }
+
+    func startMonitoring() {
+        statsCollector.start()
+    }
+
+    func getQualityMetrics() -> QualityMetrics {
+        return statsCollector.getCurrentMetrics()
+    }
+}
+```
+
+**QualityMetricsOverlay 사용**:
+```swift
+// CallView.swift에서 품질 메트릭 표시
+struct CallView: View {
+    @StateObject var viewModel: CallViewModel
+    @State var showQualityMetrics = false
+
+    var body: some View {
+        ZStack {
+            VideoCallContent()
+            if showQualityMetrics {
+                QualityMetricsOverlay(metrics: viewModel.qualityMetrics)
+            }
+        }
+    }
+}
+```
+
+### 자동 재연결 (Milestone 4)
+
+#### Android 자동 재연결 설정
+
+**ReconnectionManager 통합**:
+```kotlin
+// CallViewModel에서 재연결 관리자 사용
+class CallViewModel @Inject constructor(
+    private val webRTCRepository: WebRTCRepository,
+    private val reconnectionManager: ReconnectionManager
+) : ViewModel() {
+
+    fun handleConnectionFailure(error: WebRTCException) {
+        when {
+            error.isMinor() -> reconnectionManager.handleMinorFailure()
+            error.isMajor() -> reconnectionManager.handleMajorFailure()
+            error.isFatal() -> reconnectionManager.handleFatalFailure()
+        }
+
+        when (reconnectionManager.state) {
+            ReconnectionState.STABLE -> {
+                // 연결이 안정적임, 아무 작업 없음
+            }
+            ReconnectionState.RECONNECTING -> {
+                // 재연결 진행 중 UI 표시
+                _callState.update { it.copy(isReconnecting = true) }
+            }
+            ReconnectionState.FAILED -> {
+                // 재연결 실패, 사용자에게 알림
+                _callState.update { it.copy(
+                    isReconnecting = false,
+                    errorMessage = "Connection failed after multiple attempts"
+                ) }
+            }
+        }
+    }
+}
+```
+
+#### iOS 자동 재연결 설정
+
+**ReconnectionManager 통합**:
+```swift
+// CallViewModel에서 재연결 관리자 사용
+class CallViewModel: ObservableObject {
+    private let reconnectionManager: ReconnectionManager
+
+    func handleConnectionFailure(error: Error) {
+        switch error.severity {
+        case .minor:
+            reconnectionManager.handleMinorFailure()
+        case .major:
+            reconnectionManager.handleMajorFailure()
+        case .fatal:
+            reconnectionManager.handleFatalFailure()
+        }
+
+        switch reconnectionManager.state {
+        case .stable:
+            // 연결이 안정적임
+            break
+        case .reconnecting:
+            // 재연결 진행 중 UI 표시
+            isReconnecting = true
+        case .failed:
+            // 재연결 실패
+            isReconnecting = false
+            errorMessage = "Connection failed after multiple attempts"
+        }
+    }
+}
+```
+
+### TURN 자격 증명 자동 갱신 (Milestone 4)
+
+#### Android TURN 자격 증명 자동 갱신
+
+**앱 시작 시 자동 갱신 시작**:
+```kotlin
+// Application 클래스에서
+class WebRTCApplication : Application() {
+    @Inject lateinit var turnCredentialService: TurnCredentialService
+
+    override fun onCreate() {
+        super.onCreate()
+        // 자동 갱신 시작
+        turnCredentialService.startAutoRefresh()
+    }
+}
+```
+
+**캐시 상태 확인**:
+```kotlin
+// TURN 자격 증명 사용 전
+val credentials = turnCredentialService.getCredentials(userId)
+
+if (turnCredentialService.isCached()) {
+    val timeToExpiry = turnCredentialService.getTimeToExpiry()
+    if (timeToExpiry < 300) {
+        // 5분 이내에 만료됨, 갱신 필요
+        turnCredentialService.refreshCredentials(userId)
+    }
+}
+```
+
+#### iOS TURN 자격 증명 자동 갱신
+
+**앱 시작 시 자동 갱신 시작**:
+```swift
+// AppContainer에서
+class AppContainer {
+    let turnCredentialService: TurnCredentialService
+
+    init() {
+        self.turnCredentialService = TurnCredentialService()
+        // 자동 갱신 시작
+        self.turnCredentialService.startAutoRefresh()
+    }
+}
+```
+
+**캐시 상태 확인**:
+```swift
+// TURN 자격 증명 사용 전
+let credentials = turnCredentialService.getCredentials(username: userId)
+
+if turnCredentialService.isCached() {
+    let timeToExpiry = turnCredentialService.getTimeToExpiry()
+    if timeToExpiry < 300 {
+        // 5분 이내에 만료됨, 갱신 필요
+        turnCredentialService.refreshCredentials(username: userId)
+    }
+}
+```
+
+### 백그라운드 상태 처리 (Milestone 4)
+
+#### Android 백그라운드 서비스 설정
+
+**AndroidManifest.xml에 권한 추가**:
+```xml
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+```
+
+**백그라운드 서비스 시작**:
+```kotlin
+// CallViewModel에서
+fun startBackgroundService() {
+    val intent = Intent(context, WebRTCBackgroundService::class.java)
+    ContextCompat.startForegroundService(context, intent)
+}
+
+fun stopBackgroundService() {
+    val intent = Intent(context, WebRTCBackgroundService::class.java)
+    context.stopService(intent)
+}
+```
+
+#### iOS 백그라운드 상태 처리
+
+**Info.plist에 백그라운드 모드 추가**:
+```xml
+<key>UIBackgroundModes</key>
+<array>
+    <string>audio</string>
+    <string>voip</string>
+</array>
+```
+
+**백그라운드 핸들러 설정**:
+```swift
+// AppContainer에서 초기화
+let backgroundHandler = BackgroundStateHandler()
+backgroundHandler.start()
+
+// CallViewModel에서 사용
+func handleBackgroundTransition() {
+    backgroundHandler.onDidEnterBackground {
+        // 5분 타이머 시작
+        self.startBackgroundTimeout()
+    }
+
+    backgroundHandler.onWillEnterForeground {
+        // 타이머 취소 및 세션 복원
+        self.cancelBackgroundTimeout()
+    }
+}
+```
+
+### 품질 메트릭 해석
+
+**품질 상태**:
+- **Excellent (85-100점)**: 녹색 - 최적 연결 상태
+- **Good (70-84점)**: 연두색 - 양호한 연결 상태
+- **Fair (50-69점)**: 주황색 - 보통 연결 상태
+- **Poor (0-49점)**: 빨간색 - 나쁜 연결 상태
+
+**품질 점수 계산**:
+- RTT (왕복 시간): <50ms (우수), <100ms (양호), <200ms (보통), >=200ms (나쁨)
+- 패킷 손실률: <1% (우수), <3% (양호), <5% (보통), >=5% (나쁨)
+- 비트레이트: >1Mbps (우수), >500Kbps (양호), >250Kbps (보통), <=250Kbps (나쁨)
 
 ---
 

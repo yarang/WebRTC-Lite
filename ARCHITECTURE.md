@@ -6,6 +6,7 @@
 - [아키텍처 원칙](#아키텍처-원칙)
 - [시스템 구성 요소](#시스템-구성-요소)
 - [데이터 흐름](#데이터-흐름)
+- [고급 기능 아키텍처](#고급-기능-아키텍처)
 - [보안 아키텍처](#보안-아키텍처)
 - [확장성 전략](#확장성-전략)
 - [기술 스택](#기술-스택)
@@ -281,6 +282,338 @@ flowchart LR
 
 ---
 
+## 고급 기능 아키텍처 (Milestone 4)
+
+### 네트워크 모니터링 및 품질 메트릭
+
+Milestone 4에서 구현된 RTCStats 기반 모니터링 시스템입니다.
+
+#### RTCStats Collection Flow
+
+```mermaid
+sequenceDiagram
+    participant UI as QualityMetricsOverlay
+    participant VM as CallViewModel
+    participant PC as PeerConnectionManager
+    participant SC as RTCStatsCollector
+    participant RTC as WebRTC API
+
+    Note over UI,RTC: 매 1초마다 stats 수집
+
+    loop Every 1 second
+        SC->>RTC: getStats()
+        RTC-->>SC: RTCStatsReport
+        SC->>SC: Extract metrics (RTT, packet loss, bitrate)
+        SC->>SC: Calculate quality score (0-100)
+        SC->>SC: Determine quality state
+        SC->>VM: Update quality metrics
+        VM->>UI: StateFlow/@Published update
+        UI->>UI: Color-coded display
+    end
+```
+
+#### Quality Score Calculation Algorithm
+
+```mermaid
+flowchart TD
+    A[RTCStatsCollector receives stats] --> B[Extract RTT]
+    A --> C[Extract Packet Loss]
+    A --> D[Extract Bitrate]
+
+    B --> E{RTT Score}
+    E -->|< 50ms| F[25 points]
+    E -->|< 100ms| G[18 points]
+    E -->|< 200ms| H[10 points]
+    E -->|>= 200ms| I[5 points]
+
+    C --> J{Packet Loss Score}
+    J -->|< 1%| K[40 points]
+    J -->|< 3%| L[30 points]
+    J -->|< 5%| M[20 points]
+    J -->|>= 5%| N[10 points]
+
+    D --> O{Bitrate Score}
+    O -->|> 1Mbps| P[35 points]
+    O -->|> 500Kbps| Q[25 points]
+    O -->|> 250Kbps| R[15 points]
+    O -->|<= 250Kbps| S[5 points]
+
+    F --> T[Sum: RTT + Loss + Bitrate]
+    G --> T
+    H --> T
+    I --> T
+    K --> T
+    L --> T
+    M --> T
+    N --> T
+    P --> T
+    Q --> T
+    R --> T
+    S --> T
+
+    T --> U{Quality State}
+    U -->|85-100| V[EXCELLENT - Green]
+    U -->|70-84| W[GOOD - Light Green]
+    U -->|50-69| X[FAIR - Orange]
+    U -->|0-49| Y[POOR - Red]
+```
+
+### 자동 재연결 상태 머신
+
+#### Reconnection State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> STABLE: 초기화
+    STABLE --> RECONNECTING: ICE connection failure
+
+    state RECONNECTING {
+        [*] --> Attempt1
+        Attempt1 --> Attempt2: 1초 후 실패
+        Attempt2 --> Attempt3: 2초 후 실패
+        Attempt3 --> FAILED: 4초 후 실패
+        Attempt1 --> STABLE: 성공
+        Attempt2 --> STABLE: 성공
+        Attempt3 --> STABLE: 성공
+    }
+
+    RECONNECTING --> STABLE: 재연결 성공
+    RECONNECTING --> FAILED: 최대 재시도 도달
+    FAILED --> [*]
+
+    note right of STABLE
+        정상 연결 상태
+        재시도 카운트 = 0
+    end note
+
+    note right of RECONNECTING
+        Minor: ICE restart
+        Major: Full reconnection
+        Exponential backoff
+    end note
+
+    note right of FAILED
+        3회 재시도 실패
+        사용자에게 알림 필요
+    end note
+```
+
+#### Reconnection Strategy Decision
+
+```mermaid
+flowchart TD
+    A[Connection Failure Detected] --> B{Failure Type}
+
+    B -->|MINOR| C[ICE Restart Strategy]
+    B -->|MAJOR| D[Full Reconnection Strategy]
+    B -->|FATAL| E[No Recovery]
+
+    C --> F[Keep existing PeerConnection]
+    C --> G[Create new offer]
+    C --> H[Restart ICE gathering]
+
+    D --> I[Close old PeerConnection]
+    D --> J[Create new PeerConnection]
+    D --> K[Full renegotiation]
+
+    E --> L[Set state to FAILED]
+    E --> M[Notify user]
+
+    H --> N{Retry Limit Reached?}
+    K --> N
+    N -->|No| O[Increment retry count]
+    N -->|Yes| L
+    O --> P{Attempt Successful?}
+    P -->|Yes| Q[Return to STABLE]
+    P -->|No| R[Wait backoff time]
+    R --> N
+
+    style C fill:#e1f5e1
+    style D fill:#fff3cd
+    style E fill:#f5e1e1
+    style Q fill:#e1f5e1
+    style L fill:#f5e1e1
+```
+
+### TURN 자격 증명 캐싱 및 자동 갱신
+
+#### Caching and Auto-Refresh Flow
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant TCS as TurnCredentialService
+    participant API as TURN API
+    participant Cache as In-Memory Cache
+
+    Note over App,Cache: 앱 시작 시
+    App->>TCS: startAutoRefresh()
+    TCS->>TCS: Start 60s timer
+
+    loop Every 60 seconds
+        TCS->>Cache: Check cached credentials
+        Cache-->>TCS: Return cached or null
+
+        alt Cache exists
+            TCS->>TCS: Calculate time to expiry
+            alt Time to expiry < 5 minutes
+                TCS->>API: Request fresh credentials
+                API-->>TCS: New credentials
+                TCS->>Cache: Update cache
+            end
+        else Cache empty
+            TCS->>API: Request credentials
+            API-->>TCS: New credentials
+            TCS->>Cache: Store in cache
+        end
+    end
+
+    Note over App,Cache: 자격 증명 요청 시
+    App->>TCS: getCredentials(username)
+    TCS->>Cache: Check cache
+    Cache-->>TCS: Return cached credentials
+    TCS-->>App: Return credentials (fast path)
+```
+
+#### Cache State Management
+
+```mermaid
+stateDiagram-v2
+    [*] --> EMPTY: 초기 상태
+    EMPTY --> FETCHING: getCredentials() 호출
+    FETCHING --> CACHED: 자격 증명 수신 완료
+    CACHED --> REFRESHING: 5분 전 자동 갱신
+    REFRESHING --> CACHED: 갱신 성공
+    CACHED --> EXPIRED: TTL 만료
+    EXPIRED --> FETCHING: 재요청
+    CACHED --> [*]: 앱 종료
+
+    note right of CACHED
+        자격 증명 사용 가능
+        Thread-safe access
+        Mutex/NSLock 보호
+    end note
+
+    note right of REFRESHING
+        백그라운드 갱신 중
+        기존 자격 증명 계속 사용
+    end note
+```
+
+### 백그라운드 상태 처리
+
+#### Android Background Service Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE: 초기 상태
+    IDLE --> FOREGROUND: 통화 시작
+    FOREGROUND --> FOREGROUND_SERVICE: 백그라운드 전환
+    FOREGROUND_SERVICE --> BACKGROUND_TIMEOUT: 5분 타이머 시작
+
+    state BACKGROUND_TIMEOUT {
+        [*] --> Warning1: 1분 경과
+        Warning1 --> Warning2: 2분 경과
+        Warning2 --> Warning3: 3분 경과
+        Warning3 --> Warning4: 4분 경과
+        Warning4 --> TIMEOUT: 5분 경과
+    }
+
+    BACKGROUND_TIMEOUT --> CLEANUP: 타임아웃 도달
+    BACKGROUND_TIMEOUT --> FOREGROUND: 포그라운드 복귀
+
+    CLEANUP --> [*]: 세션 종료
+    FOREGROUND --> IDLE: 통화 종료
+
+    note right of FOREGROUND_SERVICE
+        Foreground Service 실행
+        알림 표시 중
+        WebRTC 세션 유지
+    end note
+
+    note right of CLEANUP
+        PeerConnection 정리
+        Foreground Service 중지
+        알림 제거
+    end note
+```
+
+#### iOS Background State Handling
+
+```mermaid
+stateDiagram-v2
+    [*] --> ACTIVE: 앱 활성화
+    ACTIVE --> BACKGROUND: didEnterBackground
+
+    state BACKGROUND {
+        [*] --> Monitoring: 5분 타이머 시작
+        Monitoring --> FOREGROUND_RETURN: willEnterForeground
+        Monitoring --> TIMEOUT: 5분 경과
+    }
+
+    BACKGROUND --> ACTIVE: 포그라운드 복귀 (타이머 내)
+    BACKGROUND --> CLEANUP: 타임아웃 발생
+
+    CLEANUP --> [*]: 세션 정리
+    ACTIVE --> [*]: 앱 종료
+
+    note right of Monitoring
+        Audio session 활성화
+        WebRTC 세션 유지
+        VoIP 백그라운드 모드
+    end note
+
+    note right of CLEANUP
+        PeerConnection close
+        Audio session 정리
+        상태 초기화
+    end note
+```
+
+### Advanced Features Integration
+
+```mermaid
+graph TB
+    subgraph "Advanced Features Layer"
+        A[RTCStatsCollector]
+        B[ReconnectionManager]
+        C[QualityMetricsOverlay]
+        D[TurnCredentialService]
+        E[WebRTCBackgroundService]
+        F[BackgroundStateHandler]
+    end
+
+    subgraph "Core WebRTC Layer"
+        G[PeerConnectionManager]
+        H[CallViewModel]
+        I[SignalingRepository]
+    end
+
+    subgraph "UI Layer"
+        J[CallScreen/CallView]
+    end
+
+    A --> G
+    B --> H
+    C --> J
+    D --> I
+    E --> H
+    F --> H
+
+    A --> C
+    B --> G
+    D --> D
+
+    style A fill:#d1ecf1
+    style B fill:#fff3cd
+    style C fill:#e1f5e1
+    style D fill:#d4edda
+    style E fill:#f8d7da
+    style F fill:#f8d7da
+```
+
+---
+
 ## 보안 아키텍처
 
 ### 보안 레이어
@@ -430,10 +763,239 @@ graph LR
 
 ### 클라이언트 계층
 
-| 플랫폼 | 언어 | WebRTC 라이브러리 |
-|--------|------|------------------|
-| Android | Kotlin | Google WebRTC (1.0+) |
-| iOS | Swift | Google WebRTC (1.0+) |
+| 플랫폼 | 언어 | WebRTC 라이브러리 | 상태 |
+|--------|------|------------------|------|
+| Android | Kotlin | Google WebRTC (1.0+) | ✅ 완료 |
+| iOS | Swift | Google WebRTC (1.0+) | ✅ 완료 |
+
+---
+
+## Android Client Architecture (Milestone 2)
+
+### Clean Architecture 계층 구조
+
+```mermaid
+graph TB
+    subgraph "Presentation Layer"
+        A[CallScreen<br/>Jetpack Compose]
+        B[CallViewModel<br/>State Management]
+        C[CallState & CallUiEvent<br/>UI Models]
+    end
+
+    subgraph "Domain Layer"
+        D[Use Cases<br/>Business Logic]
+        E[WebRTCRepository<br/>Interface]
+        F[SignalingRepository<br/>Interface]
+    end
+
+    subgraph "Data Layer"
+        G[SignalingRepositoryImpl<br/>Firestore Integration]
+        H[FirestoreDataSource<br/>Data Source]
+        I[TurnCredentialService<br/>TURN Credentials]
+        J[NetworkModule<br/>DI Configuration]
+    end
+
+    subgraph "WebRTC Core"
+        K[PeerConnectionManager<br/>WebRTC Lifecycle]
+        L[Google WebRTC Library<br/>Native Implementation]
+    end
+
+    A --> B
+    B --> C
+    B --> D
+    D --> E
+    D --> F
+    G --> E
+    G --> H
+    I --> H
+    G --> K
+    K --> L
+    J --> G
+    J --> I
+```
+
+### Android 컴포넌트 상세
+
+#### Presentation Layer
+```mermaid
+classDiagram
+    class CallScreen {
+        +Composable() Content
+        +onCallClicked()
+        +onHangupClicked()
+        +onPermissionResult()
+    }
+
+    class CallViewModel {
+        -callState: StateFlow~CallState~
+        -createOfferUseCase: CreateOfferUseCase
+        -answerCallUseCase: AnswerCallUseCase
+        +onEvent(CallUiEvent)
+        +callState: StateFlow~CallState~
+    }
+
+    class CallState {
+        +isConnected: Boolean
+        +isCalling: Boolean
+        +localSessionDescription: String?
+        +remoteSessionDescription: String?
+        +errorMessage: String?
+    }
+
+    class CallUiEvent {
+        <<sealed class>>
+        StartCall(roomId: String)
+        AnswerCall()
+        EndCall()
+    }
+
+    CallViewModel --> CallState
+    CallViewModel --> CallUiEvent
+    CallScreen --> CallViewModel
+```
+
+#### Domain Layer
+```mermaid
+classDiagram
+    class CreateOfferUseCase {
+        -repository: WebRTCRepository
+        +invoke(roomId: String): Result~SessionDescription~
+    }
+
+    class AnswerCallUseCase {
+        -repository: WebRTCRepository
+        -signalingRepository: SignalingRepository
+        +invoke(offer: SessionDescription): Result~Unit~
+    }
+
+    class AddIceCandidateUseCase {
+        -signalingRepository: SignalingRepository
+        +invoke(candidate: IceCandidate): Result~Unit~
+    }
+
+    class EndCallUseCase {
+        -repository: WebRTCRepository
+        +invoke(): Result~Unit~
+    }
+
+    class WebRTCRepository {
+        <<interface>>
+        +createPeerConnection(): PeerConnection
+        +createOffer(): Result~SessionDescription~
+        +createAnswer(offer): Result~SessionDescription~
+        +addIceCandidate(candidate): Result~Unit~
+        +close(): Result~Unit~
+    }
+```
+
+#### Data Layer
+```mermaid
+classDiagram
+    class SignalingRepositoryImpl {
+        -firestoreDataSource: FirestoreDataSource
+        -turnCredentialService: TurnCredentialService
+        +sendOffer(roomId, offer): Result~Unit~
+        +sendAnswer(roomId, answer): Result~Unit~
+        +sendIceCandidate(roomId, candidate): Result~Unit~
+        +observeOffer(roomId): Flow~SessionDescription~
+        +observeAnswer(roomId): Flow~SessionDescription~
+        +observeIceCandidates(roomId): Flow~IceCandidate~
+    }
+
+    class FirestoreDataSource {
+        -firestore: FirebaseFirestore
+        -collectionReference: CollectionReference
+        +getDocument(roomId): Flow~DocumentSnapshot~
+        +setOffer(roomId, sdp): Result~Unit~
+        +setAnswer(roomId, sdp): Result~Unit~
+        +addIceCandidate(roomId, candidate): Result~Unit~
+    }
+
+    class TurnCredentialService {
+        -apiUrl: String
+        -cache: LruCache
+        +getCredentials(username): Result~TurnCredentials~
+        +refreshCredentials(): Result~Unit~
+    }
+```
+
+### WebRTC PeerConnection 관리
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle: 초기화
+    Idle --> CreatingOffer: createOffer()
+    CreatingOffer --> OfferCreated: SDP 생성 완료
+    OfferCreated --> WaitingForAnswer: Offer 전송 완료
+    WaitingForAnswer --> CreatingAnswer: Answer 수신
+    CreatingAnswer --> AnswerCreated: SDP 생성 완료
+    AnswerCreated --> GatheringCandidates: ICE Gathering 시작
+    GatheringCandidates --> Connecting: ICE 후보 교환 중
+    Connecting --> Connected: P2P/TURN 연결 성공
+    Connected --> Disconnected: 연결 종료
+    Disconnected --> [*]: 정리 완료
+
+    OfferCreated --> Disconnected: 타임아웃/거절
+    WaitingForAnswer --> Disconnected: 취소
+```
+
+### 의존성 주입 (Hilt)
+
+```mermaid
+graph LR
+    subgraph "Hilt Modules"
+        A[AppModule]
+        B[NetworkModule]
+    end
+
+    subgraph "Singleton Components"
+        C[FirebaseFirestore]
+        D[TurnCredentialService]
+        E[SignalingRepository]
+    end
+
+    subgraph "Scoped Components"
+        F[PeerConnectionManager]
+        G[CallViewModel]
+    end
+
+    A --> C
+    B --> D
+    C --> E
+    D --> E
+    E --> F
+    F --> G
+```
+
+### 비동기 처리 (Coroutines + Flow)
+
+```mermaid
+sequenceDiagram
+    participant UI as CallScreen
+    participant VM as CallViewModel
+    participant UC as UseCase
+    participant Repo as Repository
+    participant DS as DataSource
+    participant FS as Firestore
+
+    UI->>VM: onEvent(StartCall)
+    VM->>UC: invoke(roomId)
+    UC->>Repo: createPeerConnection()
+    Repo-->>UC: PeerConnection
+    UC->>Repo: createOffer()
+    Repo->>Repo: WebRTC.createOffer()
+    Repo-->>UC: SessionDescription
+    UC->>Repo: sendOffer(roomId, sdp)
+    Repo->>DS: setOffer(roomId, sdp)
+    DS->>FS: firestore.collection(roomId).set()
+    FS-->>DS: Success
+    DS-->>Repo: Result.Success
+    Repo-->>UC: Result.Success
+    UC-->>VM: Result.Success
+    VM->>VM: updateState(CallState)
+    VM-->>UI: callState.collect()
+    UI->>UI: Update UI (Calling 상태)
+```
 
 ### 보안 계층
 
@@ -442,6 +1004,270 @@ graph LR
 | Firewall | iptables | 패킷 필터링 |
 | DDoS Protection | fail2ban | 무차별 대입 방어 |
 | Authentication | Firebase Auth | 사용자 인증 |
+
+---
+
+## iOS Client Architecture (Milestone 3)
+
+### Clean Architecture 계층 구조
+
+```mermaid
+graph TB
+    subgraph "Presentation Layer"
+        A[CallView<br/>SwiftUI]
+        B[CallViewModel<br/>Combine State Management]
+        C[CallState<br/>UI Models]
+    end
+
+    subgraph "Domain Layer"
+        D[Use Cases<br/>Business Logic]
+        E[WebRTCRepository<br/>Interface]
+        F[SignalingRepository<br/>Interface]
+    end
+
+    subgraph "Data Layer"
+        G[SignalingRepositoryImpl<br/>Firestore Integration]
+        H[TurnCredentialService<br/>TURN Credentials]
+        I[SignalingMessage<br/>Data Models]
+    end
+
+    subgraph "WebRTC Core"
+        J[PeerConnectionManager<br/>WebRTC Lifecycle]
+        K[Google WebRTC.xcframework<br/>Native Implementation]
+    end
+
+    subgraph "Dependency Injection"
+        L[AppContainer<br/>Manual DI]
+    end
+
+    A --> B
+    B --> C
+    B --> D
+    D --> E
+    D --> F
+    G --> E
+    H --> G
+    G --> J
+    J --> K
+    L --> B
+    L --> G
+    L --> H
+```
+
+### iOS 컴포넌트 상세
+
+#### Presentation Layer
+```mermaid
+classDiagram
+    class CallView {
+        <<SwiftUI View>>
+        +Body() some View
+        +onCallClicked()
+        +onHangupClicked()
+    }
+
+    class CallViewModel {
+        <<ObservableObject>>
+        @Published callState: CallState
+        -createOfferUseCase: CreateOfferUseCase
+        -answerCallUseCase: AnswerCallUseCase
+        -endCallUseCase: EndCallUseCase
+        +startCall(roomId: String)
+        +answerCall()
+        +endCall()
+    }
+
+    class CallState {
+        isConnected: Bool
+        isCalling: Bool
+        localSessionDescription: String?
+        remoteSessionDescription: String?
+        errorMessage: String?
+    }
+
+    CallView --> CallViewModel
+    CallViewModel --> CallState
+```
+
+#### Domain Layer
+```mermaid
+classDiagram
+    class CreateOfferUseCase {
+        -repository: WebRTCRepository
+        -signalingRepository: SignalingRepository
+        +execute(roomId: String) async throws
+    }
+
+    class AnswerCallUseCase {
+        -repository: WebRTCRepository
+        -signalingRepository: SignalingRepository
+        +execute(offer: String) async throws
+    }
+
+    class AddIceCandidateUseCase {
+        -signalingRepository: SignalingRepository
+        +execute(candidate: IceCandidate) async throws
+    }
+
+    class EndCallUseCase {
+        -repository: WebRTCRepository
+        -signalingRepository: SignalingRepository
+        +execute() async throws
+    }
+
+    class WebRTCRepository {
+        <<protocol>>
+        +createPeerConnection() async throws
+        +createOffer() async throws -> String
+        +createAnswer(offer: String) async throws -> String
+        +addIceCandidate(candidate: IceCandidate) async throws
+        +close() async throws
+    }
+
+    class SignalingRepository {
+        <<protocol>>
+        +sendOffer(roomId: String, sdp: String) async throws
+        +sendAnswer(roomId: String, sdp: String) async throws
+        +sendIceCandidate(roomId: String, candidate: IceCandidate) async throws
+        +observeOffer(roomId: String) AsyncStream~String~
+        +observeAnswer(roomId: String) AsyncStream~String~
+        +observeIceCandidates(roomId: String) AsyncStream~IceCandidate~
+    }
+```
+
+#### Data Layer
+```mermaid
+classDiagram
+    class SignalingRepositoryImpl {
+        -firestore: Firestore
+        -turnService: TurnCredentialService
+        +sendOffer(roomId, sdp) async throws
+        +sendAnswer(roomId, sdp) async throws
+        +sendIceCandidate(roomId, candidate) async throws
+        +observeOffer(roomId) AsyncStream~String~
+        +observeAnswer(roomId) AsyncStream~String~
+        +observeIceCandidates(roomId) AsyncStream~IceCandidate~
+    }
+
+    class TurnCredentialService {
+        -apiURL: String
+        -cache: NSCache
+        -apiToken: String
+        +getCredentials(username: String) async throws -> TurnCredentials
+    }
+
+    class SignalingMessage {
+        <<Codable>>
+        type: String
+        sdp: String?
+        candidate: String?
+        sdpMid: String?
+        sdpMLineIndex: Int32?
+    }
+```
+
+### WebRTC PeerConnection 관리 (iOS)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle: 초기화
+    Idle --> CreatingOffer: startCall()
+    CreatingOffer --> OfferCreated: createOffer() 완료
+    OfferCreated --> WaitingForAnswer: Offer 전송 완료
+    WaitingForAnswer --> CreatingAnswer: Answer 수신
+    CreatingAnswer --> AnswerCreated: createAnswer() 완료
+    AnswerCreated --> GatheringCandidates: ICE Gathering 시작
+    GatheringCandidates --> Connecting: ICE 후보 교환 중
+    Connecting --> Connected: P2P/TURN 연결 성공
+    Connected --> Disconnected: 연결 종료
+    Disconnected --> [*]: 정리 완료
+
+    OfferCreated --> Disconnected: 타임아웃/거절
+    WaitingForAnswer --> Disconnected: 취소
+```
+
+### 비동기 처리 (async/await + Combine)
+
+```mermaid
+sequenceDiagram
+    participant UI as CallView
+    participant VM as CallViewModel
+    participant UC as CreateOfferUseCase
+    participant Repo as WebRTCRepository
+    participant PC as PeerConnectionManager
+    participant FS as Firestore
+
+    UI->>VM: startCall(roomId)
+    VM->>UC: execute(roomId)
+    UC->>Repo: createPeerConnection()
+    Repo->>PC: initialize()
+    PC-->>Repo: RTCPeerConnection
+    UC->>Repo: createOffer()
+    Repo->>PC: createOffer()
+    PC-->>Repo: RTCSessionDescription
+    UC->>Repo: setLocalDescription()
+    Repo->>PC: setLocalDescription()
+    UC->>VM: signalingRepository.sendOffer()
+    VM->>FS: firestore.collection(roomId).setData()
+    FS-->>VM: Success
+    VM->>VM: updateState(CallState.calling)
+    VM-->>UI: @Published callState
+    UI->>UI: Update UI (Calling 상태)
+```
+
+### 의존성 주입 (AppContainer)
+
+```mermaid
+graph LR
+    subgraph "AppContainer"
+        A[Firestore Instance]
+        B[TurnCredentialService]
+        C[SignalingRepository]
+        D[WebRTCRepository]
+        E[CreateOfferUseCase]
+        F[CallViewModel]
+    end
+
+    A --> B
+    A --> C
+    B --> C
+    C --> E
+    D --> E
+    E --> F
+```
+
+### Swift Concurrency 패턴
+
+**async/await 사용:**
+```swift
+func execute(roomId: String) async throws {
+    let peerConnection = try await repository.createPeerConnection()
+    let offer = try await repository.createOffer()
+    try await repository.setLocalDescription(offer)
+    try await signalingRepository.sendOffer(roomId: roomId, sdp: offer.sdp)
+}
+```
+
+**AsyncStream 사용 (Firestore 리스너):**
+```swift
+func observeOffer(roomId: String) -> AsyncStream<String> {
+    return AsyncStream { continuation in
+        let listener = firestore.collection("sessions")
+            .document(roomId)
+            .addSnapshotListener { snapshot, error in
+                guard let sdp = snapshot?.data?["offer"] as? String else {
+                    return
+                }
+                continuation.yield(sdp)
+            }
+        continuation.onTermination = { _ in
+            listener.remove()
+        }
+    }
+}
+```
+
+### 보안 계층
 
 ---
 
@@ -591,6 +1417,21 @@ stateDiagram-v2
 
 ---
 
-**문서 버전**: 1.0.0
-**마지막 업데이트**: 2026-01-18
+**문서 버전**: 2.0.0
+**마지막 업데이트**: 2026-01-19
 **작성자**: WebRTC-Lite Team
+
+## 변경 이력
+
+### v2.0.0 (2026-01-19)
+- Milestone 4 고급 기능 아키텍처 추가
+- 네트워크 모니터링 및 품질 메트릭 섹션 추가
+- 자동 재연결 상태 머신 다이어그램 추가
+- TURN 자격 증명 캐싱 및 자동 갱신 흐름 추가
+- 백그라운드 상태 처리 라이프사이클 다이어그램 추가
+
+### v1.0.0 (2026-01-18)
+- 초기 시스템 아키텍처 문서
+- Android/iOS 클라이언트 아키텍처
+- C4 컨테이너 다이어그램
+- WebRTC 연결 시퀀스 다이어그램
